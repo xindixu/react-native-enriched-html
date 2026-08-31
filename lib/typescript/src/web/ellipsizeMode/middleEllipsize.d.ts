@@ -1,0 +1,2 @@
+export declare function middleEllipsize(container: HTMLDivElement, finalHtml: string, numberOfLines: number, setClampedHtml: (clampedHtml: string) => void): void;
+//# sourceMappingURL=middleEllipsize.d.ts.map

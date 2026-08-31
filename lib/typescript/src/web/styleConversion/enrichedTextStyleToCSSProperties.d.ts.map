@@ -1,0 +1,1 @@
+{"version":3,"file":"enrichedTextStyleToCSSProperties.d.ts","sourceRoot":"","sources":["../../../../../src/web/styleConversion/enrichedTextStyleToCSSProperties.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,OAAO,CAAC;AAC3C,OAAO,KAAK,EAAE,SAAS,EAAE,MAAM,cAAc,CAAC;AAI9C,wBAAgB,gCAAgC,CAC9C,KAAK,EAAE,SAAS,GACf,aAAa,CA4Bf"}

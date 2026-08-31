@@ -1,0 +1,3 @@
+import type { EnrichedTextInputProps } from '../types.js';
+export declare const EnrichedTextInput: ({ ref, autoFocus, editable, mentionIndicators, defaultValue, placeholder, placeholderTextColor, cursorColor, selectionColor, style, autoCapitalize, htmlStyle, linkRegex: _linkRegex, onFocus, onBlur, onChangeText, onChangeHtml, onChangeState, onLinkDetected, onMentionDetected, onStartMention, onChangeMention, onEndMention, onChangeSelection, onKeyPress, onSubmitEditing, returnKeyType, returnKeyLabel, submitBehavior, contextMenuItems, textShortcuts, androidExperimentalSynchronousEvents, useHtmlNormalizer, scrollEnabled, allowFontScaling, ...rest }: EnrichedTextInputProps) => import("react").JSX.Element;
+//# sourceMappingURL=EnrichedTextInput.d.ts.map

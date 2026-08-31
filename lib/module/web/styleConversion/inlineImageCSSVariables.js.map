@@ -1,0 +1,1 @@
+{"version":3,"names":["BROKEN_IMAGE_GLYPH_MASK","INLINE_IMAGE_CSS_VARIABLES"],"sourceRoot":"../../../../src","sources":["web/styleConversion/inlineImageCSSVariables.ts"],"mappings":";;AACA,SAASA,uBAAuB,QAAQ,kCAA+B;AAEvE,OAAO,MAAMC,0BAA0B,GAAG;EACxC,yBAAyB,EAAED;AAC7B,CAAkB","ignoreList":[]}

@@ -1,0 +1,2 @@
+export declare function tailEllipsize(container: HTMLDivElement, finalHtml: string, numberOfLines: number, setClampedHtml: (clampedHtml: string) => void): void;
+//# sourceMappingURL=tailEllipsize.d.ts.map

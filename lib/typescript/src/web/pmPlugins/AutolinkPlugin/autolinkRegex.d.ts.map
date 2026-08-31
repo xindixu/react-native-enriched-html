@@ -1,0 +1,1 @@
+{"version":3,"file":"autolinkRegex.d.ts","sourceRoot":"","sources":["../../../../../../src/web/pmPlugins/AutolinkPlugin/autolinkRegex.ts"],"names":[],"mappings":"AASA,MAAM,MAAM,mBAAmB,GAAG;IAChC,KAAK,EAAE,MAAM,CAAC;IACd,YAAY,EAAE,MAAM,CAAC;IACrB,IAAI,EAAE,MAAM,CAAC;CACd,CAAC;AASF,wBAAgB,wBAAwB,CACtC,IAAI,EAAE,MAAM,EACZ,SAAS,EAAE,MAAM,GAAG,SAAS,GAC5B,SAAS,mBAAmB,EAAE,CAiBhC"}
