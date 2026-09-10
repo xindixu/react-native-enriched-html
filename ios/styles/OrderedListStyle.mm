@@ -23,8 +23,13 @@
 }
 
 - (CGFloat)headIndent {
-  return [self.host.config orderedListMarginLeft] +
-         [self.host.config orderedListGapWidth];
+  UIFont *markerFont = [self.host.config orderedListMarkerFont];
+  CGFloat twoDigitMarkerWidth =
+      [@"99." sizeWithAttributes:@{NSFontAttributeName : markerFont}].width;
+  CGFloat markerWidth =
+      MAX([self.host.config orderedListMarginLeft], twoDigitMarkerWidth);
+
+  return markerWidth + [self.host.config orderedListGapWidth];
 }
 
 - (void)applyStyling:(NSRange)range {
