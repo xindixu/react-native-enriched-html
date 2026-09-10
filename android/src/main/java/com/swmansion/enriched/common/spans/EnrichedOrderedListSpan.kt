@@ -25,7 +25,7 @@ open class EnrichedOrderedListSpan(
     // Do nothing, but inform layout that this span affects text metrics
   }
 
-  override fun getLeadingMargin(first: Boolean): Int = enrichedStyle.olMarginLeft + enrichedStyle.olGapWidth
+  override fun getLeadingMargin(first: Boolean): Int = (enrichedStyle.olMarginLeft + enrichedStyle.olGapWidth).toInt()
 
   override fun drawLeadingMargin(
     canvas: Canvas,
@@ -43,37 +43,36 @@ open class EnrichedOrderedListSpan(
   ) {
     if (first) {
       val text = "$index."
-      val width = paint.measureText(text)
-
-      val yPosition = baseline.toFloat()
-      val xPosition = (enrichedStyle.olMarginLeft + x - width / 2) * dir
-
       val originalColor = paint.color
       val originalTypeface = paint.typeface
 
       paint.color = enrichedStyle.olMarkerColor ?: originalColor
-      paint.typeface = getTypeface(enrichedStyle.olMarkerFontWeight, originalTypeface)
+      paint.typeface = createMarkerTypeface(enrichedStyle.olMarkerFontWeight, originalTypeface)
+      val width = paint.measureText(text)
+      val yPosition = baseline.toFloat()
+      val markerRightEdge = x + enrichedStyle.olMarginLeft * dir
+      val xPosition = if (dir > 0) markerRightEdge - width else markerRightEdge
       canvas.drawText(text, xPosition, yPosition, paint)
 
       paint.color = originalColor
       paint.typeface = originalTypeface
     }
   }
-
-  private fun getTypeface(
-    fontWeight: Int?,
-    originalTypeface: Typeface,
-  ): Typeface =
-    if (fontWeight == null) {
-      originalTypeface
-    } else if (Build.VERSION.SDK_INT >= 28) {
-      Typeface.create(originalTypeface, fontWeight, false)
-    } else {
-      // Fallback for API < 28: only bold/normal supported
-      if (fontWeight == Typeface.BOLD) {
-        Typeface.create(originalTypeface, Typeface.BOLD)
-      } else {
-        Typeface.create(originalTypeface, Typeface.NORMAL)
-      }
-    }
 }
+
+internal fun createMarkerTypeface(
+  fontWeight: Int?,
+  originalTypeface: Typeface,
+): Typeface =
+  if (fontWeight == null) {
+    originalTypeface
+  } else if (Build.VERSION.SDK_INT >= 28) {
+    Typeface.create(originalTypeface, fontWeight, false)
+  } else {
+    // Fallback for API < 28: only bold/normal supported
+    if (fontWeight == Typeface.BOLD) {
+      Typeface.create(originalTypeface, Typeface.BOLD)
+    } else {
+      Typeface.create(originalTypeface, Typeface.NORMAL)
+    }
+  }

@@ -1,19 +1,23 @@
 package com.swmansion.enriched.textinput.styles
 
 import android.graphics.Color
+import android.graphics.Paint
 import com.facebook.react.bridge.ColorPropConverter
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.views.text.ReactTypefaceUtils.parseFontWeight
 import com.swmansion.enriched.common.EnrichedConstants
 import com.swmansion.enriched.common.EnrichedStyle
 import com.swmansion.enriched.common.MentionStyle
 import com.swmansion.enriched.common.pixelFromSpOrDp
+import com.swmansion.enriched.common.spans.createMarkerTypeface
 import com.swmansion.enriched.textinput.EnrichedTextInputView
 import kotlin.Float
 import kotlin.Int
 import kotlin.String
 import kotlin.math.ceil
+import kotlin.math.max
 
 class HtmlStyle : EnrichedStyle {
   private var style: ReadableMap? = null
@@ -45,19 +49,19 @@ class HtmlStyle : EnrichedStyle {
   override var blockquoteStripeWidth: Int = 2
   override var blockquoteGapWidth: Int = 16
 
-  override var olGapWidth: Int = 16
-  override var olMarginLeft: Int = 24
+  override var olGapWidth: Float = 16f
+  override var olMarginLeft: Float = 24f
   override var olMarkerFontWeight: Int? = null
   override var olMarkerColor: Int? = null
 
-  override var ulGapWidth: Int = 16
-  override var ulMarginLeft: Int = 24
-  override var ulBulletSize: Int = 8
+  override var ulGapWidth: Float = 16f
+  override var ulMarginLeft: Float = 24f
+  override var ulBulletSize: Float = 8f
   override var ulBulletColor: Int = Color.BLACK
 
-  override var ulCheckboxBoxSize: Int = 50
-  override var ulCheckboxGapWidth: Int = 16
-  override var ulCheckboxMarginLeft: Int = 24
+  override var ulCheckboxBoxSize: Float = 50f
+  override var ulCheckboxGapWidth: Float = 16f
+  override var ulCheckboxMarginLeft: Float = 24f
   override var ulCheckboxBoxColor: Int = Color.BLACK
 
   override var aColor: Int = Color.BLACK
@@ -113,23 +117,22 @@ class HtmlStyle : EnrichedStyle {
     blockquoteStripeWidth = parseFloat(blockquoteStyle, "borderWidth").toInt()
 
     val olStyle = style.getMap("ol")
-    val userDefinedMarginLeft = parseFloat(olStyle, "marginLeft").toInt()
-    val calculatedMarginLeft = calculateOlMarginLeft(view, userDefinedMarginLeft)
-    olMarginLeft = calculatedMarginLeft
-    olGapWidth = parseFloat(olStyle, "gapWidth").toInt()
-    olMarkerColor = parseOptionalColor(olStyle, "markerColor")
     olMarkerFontWeight = parseOptionalFontWeight(olStyle, "markerFontWeight")
+    val markerMinWidth = parseDimension(olStyle, "marginLeft")
+    olMarginLeft = calculateOlMarkerWidth(view, markerMinWidth, olMarkerFontWeight)
+    olGapWidth = parseDimension(olStyle, "gapWidth")
+    olMarkerColor = parseOptionalColor(olStyle, "markerColor")
 
     val ulStyle = style.getMap("ul")
     ulBulletColor = parseColor(ulStyle, "bulletColor")
-    ulGapWidth = parseFloat(ulStyle, "gapWidth").toInt()
-    ulMarginLeft = parseFloat(ulStyle, "marginLeft").toInt()
-    ulBulletSize = parseFloat(ulStyle, "bulletSize").toInt()
+    ulGapWidth = parseDimension(ulStyle, "gapWidth")
+    ulMarginLeft = parseDimension(ulStyle, "marginLeft")
+    ulBulletSize = parseDimension(ulStyle, "bulletSize")
 
     val ulCheckboxStyle = style.getMap("ulCheckbox")
-    ulCheckboxBoxSize = parseFloat(ulCheckboxStyle, "boxSize").toInt()
-    ulCheckboxGapWidth = parseFloat(ulCheckboxStyle, "gapWidth").toInt()
-    ulCheckboxMarginLeft = parseFloat(ulCheckboxStyle, "marginLeft").toInt()
+    ulCheckboxBoxSize = parseDimension(ulCheckboxStyle, "boxSize")
+    ulCheckboxGapWidth = parseDimension(ulCheckboxStyle, "gapWidth")
+    ulCheckboxMarginLeft = parseDimension(ulCheckboxStyle, "marginLeft")
     ulCheckboxBoxColor = parseColor(ulCheckboxStyle, "boxColor")
 
     val aStyle = style.getMap("a")
@@ -156,6 +159,14 @@ class HtmlStyle : EnrichedStyle {
     val safeMap = ensureValueIsSet(map, key)
     val value = safeMap.getDouble(key)
     return ceil(pixelFromSpOrDp(value, view?.allowFontScaling ?: EnrichedConstants.ALLOW_FONT_SCALING_DEFAULT))
+  }
+
+  private fun parseDimension(
+    map: ReadableMap?,
+    key: String,
+  ): Float {
+    val safeMap = ensureValueIsSet(map, key)
+    return PixelUtil.toPixelFromDIP(safeMap.getDouble(key))
   }
 
   private fun parseColorWithOpacity(
@@ -213,14 +224,17 @@ class HtmlStyle : EnrichedStyle {
     throw Error("Specified textDecorationLine value is not supported: $underline. Supported values are 'underline' and 'none'.")
   }
 
-  private fun calculateOlMarginLeft(
+  private fun calculateOlMarkerWidth(
     view: EnrichedTextInputView?,
-    userMargin: Int,
-  ): Int {
-    val fontSize = view?.fontSize?.toInt() ?: 0
-    val leadMargin = fontSize / 2
+    markerMinWidth: Float,
+    markerFontWeight: Int?,
+  ): Float {
+    val sourcePaint = view?.paint ?: return markerMinWidth
+    val markerPaint = Paint(sourcePaint)
+    markerPaint.typeface = createMarkerTypeface(markerFontWeight, sourcePaint.typeface)
+    val naturalMarkerWidth = markerPaint.measureText("99.")
 
-    return leadMargin + userMargin
+    return max(markerMinWidth, naturalMarkerWidth)
   }
 
   private fun ensureValueIsSet(

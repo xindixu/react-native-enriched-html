@@ -1,14 +1,18 @@
 package com.swmansion.enriched.text
 
 import android.graphics.Color
+import android.graphics.Paint
 import com.facebook.react.bridge.ColorPropConverter
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.views.text.ReactTypefaceUtils.parseFontWeight
 import com.swmansion.enriched.common.EnrichedStyle
 import com.swmansion.enriched.common.MentionStyle
 import com.swmansion.enriched.common.pixelFromSpOrDp
+import com.swmansion.enriched.common.spans.createMarkerTypeface
 import kotlin.math.ceil
+import kotlin.math.max
 
 data class EnrichedTextStyle(
   // Headings
@@ -30,20 +34,20 @@ data class EnrichedTextStyle(
   override val blockquoteStripeWidth: Int,
   override val blockquoteGapWidth: Int,
   // Ordered List
-  override val olGapWidth: Int,
-  override val olMarginLeft: Int,
+  override val olGapWidth: Float,
+  override val olMarginLeft: Float,
   override val olMarkerFontWeight: Int?,
   override val olMarkerColor: Int?,
   // Unordered List
-  override val ulGapWidth: Int,
-  override val ulMarginLeft: Int,
-  override val ulBulletSize: Int,
+  override val ulGapWidth: Float,
+  override val ulMarginLeft: Float,
+  override val ulBulletSize: Float,
   override val ulBulletColor: Int,
   // Checkbox List
   override val ulCheckboxBoxColor: Int,
-  override val ulCheckboxBoxSize: Int,
-  override val ulCheckboxGapWidth: Int,
-  override val ulCheckboxMarginLeft: Int,
+  override val ulCheckboxBoxSize: Float,
+  override val ulCheckboxGapWidth: Float,
+  override val ulCheckboxMarginLeft: Float,
   // Links
   override val aColor: Int,
   override val aUnderline: Boolean,
@@ -61,7 +65,7 @@ data class EnrichedTextStyle(
   companion object {
     fun fromReadableMap(
       context: ReactContext,
-      fontSize: Int,
+      basePaint: Paint,
       map: ReadableMap,
       allowFontScaling: Boolean,
     ): EnrichedTextStyle {
@@ -79,6 +83,9 @@ data class EnrichedTextStyle(
       val codeblock = map.getMap("codeblock")
       val inlineCode = map.getMap("code")
       val mentions = map.getMap("mention")
+      val olMarkerFontWeight = parseOptionalFontWeight(orderedList, "markerFontWeight")
+      val olMarkerMinWidth = parseDimension(orderedList, "marginLeft")
+      val olMarkerWidth = calculateOlMarkerWidth(basePaint, olMarkerMinWidth, olMarkerFontWeight)
 
       return EnrichedTextStyle(
         h1FontSize = parseFloat(h1, "fontSize", allowFontScaling).toInt(),
@@ -97,18 +104,18 @@ data class EnrichedTextStyle(
         blockquoteBorderColor = parseColor(context, blockquote, "borderColor"),
         blockquoteStripeWidth = parseFloat(blockquote, "borderWidth", allowFontScaling).toInt(),
         blockquoteGapWidth = parseFloat(blockquote, "gapWidth", allowFontScaling).toInt(),
-        olGapWidth = parseFloat(orderedList, "gapWidth", allowFontScaling).toInt(),
-        olMarginLeft = calculateOlMarginLeft(fontSize, parseFloat(orderedList, "marginLeft", allowFontScaling).toInt()),
-        olMarkerFontWeight = parseOptionalFontWeight(orderedList, "markerFontWeight"),
+        olGapWidth = parseDimension(orderedList, "gapWidth"),
+        olMarginLeft = olMarkerWidth,
+        olMarkerFontWeight = olMarkerFontWeight,
         olMarkerColor = parseOptionalColor(context, orderedList, "markerColor"),
-        ulGapWidth = parseFloat(unorderedList, "gapWidth", allowFontScaling).toInt(),
-        ulMarginLeft = parseFloat(unorderedList, "marginLeft", allowFontScaling).toInt(),
-        ulBulletSize = parseFloat(unorderedList, "bulletSize", allowFontScaling).toInt(),
+        ulGapWidth = parseDimension(unorderedList, "gapWidth"),
+        ulMarginLeft = parseDimension(unorderedList, "marginLeft"),
+        ulBulletSize = parseDimension(unorderedList, "bulletSize"),
         ulBulletColor = parseColor(context, unorderedList, "bulletColor"),
         ulCheckboxBoxColor = parseColor(context, checkboxList, "boxColor"),
-        ulCheckboxBoxSize = parseFloat(checkboxList, "boxSize", allowFontScaling).toInt(),
-        ulCheckboxGapWidth = parseFloat(checkboxList, "gapWidth", allowFontScaling).toInt(),
-        ulCheckboxMarginLeft = parseFloat(checkboxList, "marginLeft", allowFontScaling).toInt(),
+        ulCheckboxBoxSize = parseDimension(checkboxList, "boxSize"),
+        ulCheckboxGapWidth = parseDimension(checkboxList, "gapWidth"),
+        ulCheckboxMarginLeft = parseDimension(checkboxList, "marginLeft"),
         aColor = parseColor(context, link, "color"),
         aUnderline = parseIsUnderline(link),
         aPressColor = parseColor(context, link, "pressColor"),
@@ -128,6 +135,24 @@ data class EnrichedTextStyle(
     ): Float {
       if (map == null || !map.hasKey(key) || map.isNull(key)) return 0f
       return ceil(pixelFromSpOrDp(map.getDouble(key), allowFontScaling))
+    }
+
+    private fun parseDimension(
+      map: ReadableMap?,
+      key: String,
+    ): Float {
+      if (map == null || !map.hasKey(key) || map.isNull(key)) return 0f
+      return PixelUtil.toPixelFromDIP(map.getDouble(key))
+    }
+
+    private fun calculateOlMarkerWidth(
+      basePaint: Paint,
+      markerMinWidth: Float,
+      markerFontWeight: Int?,
+    ): Float {
+      val markerPaint = Paint(basePaint)
+      markerPaint.typeface = createMarkerTypeface(markerFontWeight, basePaint.typeface)
+      return max(markerMinWidth, markerPaint.measureText("99."))
     }
 
     private fun parseColor(
@@ -167,14 +192,6 @@ data class EnrichedTextStyle(
     ): Int? {
       val weight = map?.getString(key) ?: return null
       return parseFontWeight(weight)
-    }
-
-    private fun calculateOlMarginLeft(
-      fontSize: Int,
-      userMargin: Int,
-    ): Int {
-      val leadMargin = fontSize / 2
-      return leadMargin + userMargin
     }
 
     private fun parseMentionsStyle(

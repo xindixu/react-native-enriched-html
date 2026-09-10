@@ -10,7 +10,7 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.drawable.Drawable
 
 class CheckboxDrawable(
-  private val size: Int,
+  private val size: Float,
   private var color: Int,
   private var isChecked: Boolean,
 ) : Drawable() {

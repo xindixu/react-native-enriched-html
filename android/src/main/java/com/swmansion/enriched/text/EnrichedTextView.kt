@@ -36,6 +36,7 @@ class EnrichedTextView : AppCompatTextView {
   private var valueDirty = false
   private var value: String? = null
   private var typefaceDirty = false
+  private var listMetricsDirty = false
   private var fontFamily: String? = null
   private var fontStyle: Int = ReactConstants.UNSET
   private var fontWeight: Int = ReactConstants.UNSET
@@ -259,7 +260,7 @@ class EnrichedTextView : AppCompatTextView {
 
     htmlStyleMap = style
     val enrichedStyle =
-      EnrichedTextStyle.fromReadableMap(context as ReactContext, fontSize.toInt(), style, allowFontScaling)
+      EnrichedTextStyle.fromReadableMap(context as ReactContext, paint, style, allowFontScaling)
     this.enrichedStyle = enrichedStyle
 
     val currentText = text ?: return
@@ -303,12 +304,14 @@ class EnrichedTextView : AppCompatTextView {
     val sizeInt = ceil(pixelFromSpOrDp(size, allowFontScaling))
     fontSize = sizeInt
     setTextSize(TypedValue.COMPLEX_UNIT_PX, sizeInt)
+    listMetricsDirty = true
   }
 
   fun setFontFamily(family: String?) {
     if (family != fontFamily) {
       fontFamily = family
       typefaceDirty = true
+      listMetricsDirty = true
     }
   }
 
@@ -318,6 +321,7 @@ class EnrichedTextView : AppCompatTextView {
     if (fontWeight != this.fontWeight) {
       this.fontWeight = fontWeight
       typefaceDirty = true
+      listMetricsDirty = true
     }
   }
 
@@ -327,6 +331,7 @@ class EnrichedTextView : AppCompatTextView {
     if (fontStyle != this.fontStyle) {
       this.fontStyle = fontStyle
       typefaceDirty = true
+      listMetricsDirty = true
     }
   }
 
@@ -353,6 +358,10 @@ class EnrichedTextView : AppCompatTextView {
 
   fun afterUpdateTransaction() {
     updateTypeface()
+    if (listMetricsDirty) {
+      listMetricsDirty = false
+      htmlStyleMap?.let { setHtmlStyle(it) }
+    }
     updateValue()
   }
 

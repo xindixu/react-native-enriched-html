@@ -24,7 +24,10 @@ open class EnrichedUnorderedListSpan(
     // Do nothing, but inform layout that this span affects text metrics
   }
 
-  override fun getLeadingMargin(p0: Boolean): Int = enrichedStyle.ulBulletSize + enrichedStyle.ulGapWidth + enrichedStyle.ulMarginLeft
+  private val bulletRadius = enrichedStyle.ulBulletSize / 2f
+  private val markerColumnWidth = maxOf(enrichedStyle.ulMarginLeft, bulletRadius)
+
+  override fun getLeadingMargin(p0: Boolean): Int = (markerColumnWidth + enrichedStyle.ulGapWidth).toInt()
 
   override fun drawLeadingMargin(
     canvas: Canvas,
@@ -48,10 +51,9 @@ open class EnrichedUnorderedListSpan(
       paint.color = enrichedStyle.ulBulletColor
       paint.style = Paint.Style.FILL
 
-      val bulletRadius = enrichedStyle.ulBulletSize / 2f
       val fm = paint.fontMetricsInt
       val yPosition = baseline + (fm.ascent + fm.descent) / 2f
-      val xPosition = x + dir * bulletRadius + enrichedStyle.ulMarginLeft
+      val xPosition = x + dir * markerColumnWidth
 
       canvas.drawCircle(xPosition, yPosition, bulletRadius, paint)
 

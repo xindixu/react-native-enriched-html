@@ -22,21 +22,21 @@ interface EnrichedStyle {
   val blockquoteGapWidth: Int
 
   // Ordered Lists
-  val olGapWidth: Int
-  val olMarginLeft: Int
+  val olGapWidth: Float
+  val olMarginLeft: Float
   val olMarkerFontWeight: Int?
   val olMarkerColor: Int?
 
   // Unordered Lists
-  val ulGapWidth: Int
-  val ulMarginLeft: Int
-  val ulBulletSize: Int
+  val ulGapWidth: Float
+  val ulMarginLeft: Float
+  val ulBulletSize: Float
   val ulBulletColor: Int
 
   // Checkbox list
-  val ulCheckboxBoxSize: Int
-  val ulCheckboxGapWidth: Int
-  val ulCheckboxMarginLeft: Int
+  val ulCheckboxBoxSize: Float
+  val ulCheckboxGapWidth: Float
+  val ulCheckboxMarginLeft: Float
   val ulCheckboxBoxColor: Int
 
   // Links

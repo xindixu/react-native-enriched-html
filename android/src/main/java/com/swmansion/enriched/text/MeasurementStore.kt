@@ -101,7 +101,7 @@ object MeasurementStore {
 
   private fun getInitialText(
     context: Context,
-    fontSize: Int,
+    paint: TextPaint,
     props: ReadableMap?,
   ): CharSequence {
     val text = props?.getString("text") ?: ""
@@ -116,7 +116,7 @@ object MeasurementStore {
       val textToParse = if (isInternalHtml) text else GumboNormalizer.normalizeHtml(text)
       val style = props?.getMap("htmlStyle") ?: return text
       val allowFontScaling = allowFontScalingFromProps(props)
-      val enrichedStyle = EnrichedTextStyle.fromReadableMap(context as ReactContext, fontSize, style, allowFontScaling)
+      val enrichedStyle = EnrichedTextStyle.fromReadableMap(context as ReactContext, paint, style, allowFontScaling)
 
       val factory = EnrichedTextSpanFactory()
       val parsed = EnrichedParser.fromHtml(textToParse, enrichedStyle, factory)
@@ -151,14 +151,18 @@ object MeasurementStore {
     props: ReadableMap?,
   ): Long {
     val fontSize = getInitialFontSize(props)
-    val text = getInitialText(context, fontSize.toInt(), props)
-
     val fontFamily = props?.getString("fontFamily")
     val numberOfLines = props?.getInt("numberOfLines") ?: 0
     val ellipsizeMode = props?.getString("ellipsizeMode")
     val fontStyle = parseFontStyle(props?.getString("fontStyle"))
     val fontWeight = parseFontWeight(props?.getString("fontWeight"))
     val typeface = applyStyles(null, fontStyle, fontWeight, fontFamily, context.assets)
+    val paint =
+      TextPaint().apply {
+        this.typeface = typeface
+        textSize = fontSize
+      }
+    val text = getInitialText(context, paint, props)
     val size = measure(width, text, typeface, fontSize, numberOfLines, ellipsizeMode)
 
     return size

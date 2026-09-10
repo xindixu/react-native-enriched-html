@@ -13,6 +13,7 @@ import com.swmansion.enriched.common.CheckboxDrawable
 import com.swmansion.enriched.common.EnrichedStyle
 import com.swmansion.enriched.common.spans.interfaces.EnrichedParagraphSpan
 import com.swmansion.enriched.textinput.styles.HtmlStyle
+import kotlin.math.ceil
 
 open class EnrichedCheckboxListSpan(
   open var isChecked: Boolean,
@@ -23,8 +24,10 @@ open class EnrichedCheckboxListSpan(
   EnrichedParagraphSpan {
   private val checkboxDrawable =
     CheckboxDrawable(enrichedStyle.ulCheckboxBoxSize, enrichedStyle.ulCheckboxBoxColor, isChecked).apply {
-      setBounds(0, 0, enrichedStyle.ulCheckboxBoxSize, enrichedStyle.ulCheckboxBoxSize)
+      val boundsSize = ceil(enrichedStyle.ulCheckboxBoxSize).toInt()
+      setBounds(0, 0, boundsSize, boundsSize)
     }
+  private val markerColumnWidth = maxOf(enrichedStyle.ulCheckboxMarginLeft, enrichedStyle.ulCheckboxBoxSize)
 
   override fun updateMeasureState(tp: TextPaint) {
     // Do nothing, but inform layout that this span affects text metrics
@@ -43,7 +46,7 @@ open class EnrichedCheckboxListSpan(
     v: Int,
     fm: Paint.FontMetricsInt,
   ) {
-    val checkboxSize = enrichedStyle.ulCheckboxBoxSize
+    val checkboxSize = ceil(enrichedStyle.ulCheckboxBoxSize).toInt()
     val currentLineHeight = fm.descent - fm.ascent
 
     if (checkboxSize > currentLineHeight) {
@@ -58,8 +61,7 @@ open class EnrichedCheckboxListSpan(
     }
   }
 
-  override fun getLeadingMargin(first: Boolean): Int =
-    enrichedStyle.ulCheckboxBoxSize + enrichedStyle.ulCheckboxMarginLeft + enrichedStyle.ulCheckboxGapWidth
+  override fun getLeadingMargin(first: Boolean): Int = (markerColumnWidth + enrichedStyle.ulCheckboxGapWidth).toInt()
 
   override fun drawLeadingMargin(
     canvas: Canvas,
@@ -84,7 +86,13 @@ open class EnrichedCheckboxListSpan(
       val textCenter = baseline + (fm.ascent + fm.descent) / 2f
       val drawableTop = textCenter - (enrichedStyle.ulCheckboxBoxSize / 2f)
 
-      canvas.withTranslation(x.toFloat() + enrichedStyle.ulCheckboxMarginLeft, drawableTop) {
+      val markerLeft =
+        if (dir > 0) {
+          x + markerColumnWidth - enrichedStyle.ulCheckboxBoxSize
+        } else {
+          x - markerColumnWidth
+        }
+      canvas.withTranslation(markerLeft, drawableTop) {
         checkboxDrawable.draw(this)
       }
     }

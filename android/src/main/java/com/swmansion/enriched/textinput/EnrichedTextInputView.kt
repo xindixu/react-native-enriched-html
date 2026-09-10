@@ -799,6 +799,8 @@ class EnrichedTextInputView :
     typeface = newTypeface
     paint.typeface = newTypeface
 
+    // Ordered-list indentation is derived from the current marker typeface.
+    htmlStyle.invalidateStyles()
     layoutManager.invalidateLayout()
   }
 
