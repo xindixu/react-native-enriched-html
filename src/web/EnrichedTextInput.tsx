@@ -319,7 +319,12 @@ export const EnrichedTextInput = ({
   }, [editor, returnKeyType]);
 
   useEffect(() => {
-    editor?.commands.normalizeBoldInStyledHeadings();
+    // When React reveals a hidden subtree it re-mounts the subtree's effects
+    // against the values of its last render, and `useEditor` destroys that
+    // editor while the subtree is hidden. A destroyed editor is not null, and
+    // its `commands` getter throws, so `isDestroyed` is the check that holds.
+    if (!editor || editor.isDestroyed) return;
+    editor.commands.normalizeBoldInStyledHeadings();
   }, [editor, resolvedHtmlStyle]);
 
   const getMentionCallbacks = useCallback(
