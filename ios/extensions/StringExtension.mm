@@ -27,6 +27,35 @@
   return escaped;
 }
 
+// Decodes the entities `getEscapedCharactersInfoFrom` recognizes, and only
+// those. Attribute values are captured verbatim while body text is decoded, so
+// a value that must equal the text it labels has to decode by that same table:
+// a wider one would turn a match into a mismatch.
++ (NSString *)stringByUnescapingHtml:(NSString *)text {
+  if (text == nullptr) {
+    return nullptr;
+  }
+
+  NSDictionary *entities = [self getEscapedCharactersInfoFrom:text];
+  if (entities.count == 0) {
+    return text;
+  }
+
+  NSMutableString *unescaped = [[NSMutableString alloc] init];
+  NSUInteger i = 0;
+  while (i < text.length) {
+    NSArray *entityInfo = entities[@(i)];
+    if (entityInfo != nullptr) {
+      [unescaped appendString:entityInfo[1]];
+      i += ((NSString *)entityInfo[0]).length;
+    } else {
+      [unescaped appendString:[text substringWithRange:NSMakeRange(i, 1)]];
+      i += 1;
+    }
+  }
+  return unescaped;
+}
+
 + (NSDictionary *)getEscapedCharactersInfoFrom:(NSString *)text {
   NSDictionary *unescapeMap = @{
     @"&amp;" : @"&",
