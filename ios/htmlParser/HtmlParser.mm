@@ -771,7 +771,12 @@
       [styleArr addObject:@([MentionStyle getType])];
       // extract html expression into dict using some regex
       NSMutableDictionary *paramsDict = [[NSMutableDictionary alloc] init];
-      NSString *pattern = @"(\\w+)=(['\"])(.*?)\\2";
+      // The name class excludes only what cannot appear in an attribute name,
+      // so a hyphenated name survives. `\w` would end the name at its last
+      // word segment, parsing `data-mention-id` as `id`. This dictionary is
+      // the mention's whole identity and is replayed on export, so such a
+      // truncated name is what a later getHTML would return.
+      NSString *pattern = @"([^\\s=\"'<>/]+)=(['\"])(.*?)\\2";
       NSRegularExpression *regex =
           [NSRegularExpression regularExpressionWithPattern:pattern
                                                     options:0
