@@ -798,7 +798,14 @@
                            }];
 
       MentionParams *mentionParams = [[MentionParams alloc] init];
-      mentionParams.text = paramsDict[@"text"];
+      // `text` is compared against the buffer to decide whether the user has
+      // edited this mention, and the buffer holds decoded text while attribute
+      // values are captured verbatim. Without this the two never match for a
+      // label holding `&`, `<`, `>`, or a numeric reference, and the mention is
+      // dropped as edited. The remaining attributes stay verbatim: they carry
+      // identity rather than text, and decoding them would rewrite an ID.
+      mentionParams.text =
+          [NSString stringByUnescapingHtml:paramsDict[@"text"]];
       mentionParams.indicator = paramsDict[@"indicator"];
 
       [paramsDict removeObjectsForKeys:@[ @"text", @"indicator" ]];
