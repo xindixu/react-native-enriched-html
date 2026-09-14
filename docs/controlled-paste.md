@@ -4,6 +4,9 @@ Provide `onPaste` to intercept clipboard text and HTML before insertion on web,
 iOS, and Android 8 or newer. Android 7 keeps its default paste behavior even
 when this callback is provided. Without the callback, paste keeps its default
 behavior on every platform. Pasted images continue through `onPasteImages`.
+On web, image files without an image callback and HTML containing image nodes
+bypass text/HTML interception and keep the editor's default paste handling.
+For mixed text/image content, the entire paste follows that existing path.
 
 ```tsx
 <EnrichedTextInput

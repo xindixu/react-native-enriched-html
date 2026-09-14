@@ -38,7 +38,8 @@ const render = (props: Partial<EnrichedTextInputProps> = {}) => {
 };
 const paste = (
   html = '<table><tr><td>A</td><td>B</td></tr></table>',
-  text = 'A\tB'
+  text = 'A\tB',
+  clipboard: Partial<DataTransfer> = {}
 ) => {
   const event = new Event('paste', { bubbles: true, cancelable: true });
   Object.defineProperty(event, 'clipboardData', {
@@ -47,6 +48,7 @@ const paste = (
       items: [],
       files: [],
       types: ['text/html', 'text/plain'],
+      ...clipboard,
     },
   });
   act(() => editor.view.dom.dispatchEvent(event));
@@ -175,3 +177,49 @@ it('keeps paste separate from typing before and after it in undo history', async
   act(() => editor.commands.redo());
   expect(editor.getText()).toBe('hello beforepaste');
 });
+
+it.each(['items', 'files', 'html'])(
+  'keeps default image paste from %s without a callback',
+  async (source) => {
+    const file = new File(['image'], 'image.png', { type: 'image/png' });
+    const clipboard =
+      source === 'items'
+        ? { items: [{ kind: 'file', type: file.type, getAsFile: () => file }] }
+        : source === 'files'
+          ? { files: [file] }
+          : {};
+    const html =
+      '<p>caption<img src="https://example.com/image.png" alt="picture"></p>';
+    render({ onPaste: undefined });
+    paste(html, 'caption', clipboard as Partial<DataTransfer>);
+    const defaultHtml = editor.getHTML();
+    expect(defaultHtml).toContain('src="https://example.com/image.png"');
+    act(() => {
+      ref.current!.setValue('<p>hello world</p>');
+      editor.commands.setTextSelection({ from: 7, to: 12 });
+    });
+    render();
+    paste();
+    const requestId = requests[0]!.requestId;
+    requests = [];
+    paste(html, 'caption', clipboard as Partial<DataTransfer>);
+    expect(requests).toHaveLength(0);
+    expect(editor.getHTML()).toBe(defaultHtml);
+    expect(await complete(requestId, '<p>stale</p>')).toBe(false);
+  }
+);
+
+it.each(['items', 'files'])(
+  'leaves a binary-only image paste from %s unconsumed without an image callback',
+  (source) => {
+    const file = new File(['image'], 'image.png', { type: 'image/png' });
+    const clipboard =
+      source === 'items'
+        ? { items: [{ kind: 'file', type: file.type, getAsFile: () => file }] }
+        : { files: [file] };
+    const event = paste('', '', clipboard as unknown as Partial<DataTransfer>);
+    expect(requests).toHaveLength(0);
+    expect(event.defaultPrevented).toBe(false);
+    expect(editor.getText()).toBe('hello world');
+  }
+);

@@ -69,7 +69,10 @@ import { StrictMarksPlugin } from './pmPlugins/StrictMarksPlugin';
 import { MergeAdjacentSameKindBlocksPlugin } from './pmPlugins/MergeAdjacentSameKindBlocksPlugin';
 import { OrderedListMarkerWidthPlugin } from './pmPlugins/OrderedListMarkerWidthPlugin';
 import { StripMarksInCodeBlockPlugin } from './pmPlugins/StripMarksInCodeBlockPlugin';
-import { handleClipboardPasteImages } from './utils/pasteImages';
+import {
+  clipboardImageFiles,
+  handleClipboardPasteImages,
+} from './utils/pasteImages';
 import {
   MentionPlugin,
   setMention,
@@ -304,7 +307,7 @@ export const EnrichedTextInput = ({
       },
       editorProps: {
         handleKeyDown: (view, event) => handleKeyDown(view.state.doc, event),
-        handlePaste: (view, event) => {
+        handlePaste: (view, event, slice) => {
           pendingPaste.current = null;
           if (
             handleClipboardPasteImages(
@@ -316,6 +319,14 @@ export const EnrichedTextInput = ({
             return true;
           const callback = onPasteRef.current;
           if (!callback || !event.clipboardData) return false;
+          // Leave image-containing pastes to the existing editor handlers.
+          let containsImage =
+            clipboardImageFiles(event.clipboardData).length > 0;
+          slice.content.descendants((node) => {
+            if (node.type.name === 'image') containsImage = true;
+            return !containsImage;
+          });
+          if (containsImage) return false;
           event.preventDefault();
           const requestId = String(++nextPasteId.current);
           const { from, to } = view.state.selection;
