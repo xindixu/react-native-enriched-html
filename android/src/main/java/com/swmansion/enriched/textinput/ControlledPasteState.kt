@@ -30,7 +30,9 @@ internal class ControlledPasteState(
     if (!enabled) return null
     if (pending != null) invalidate()
 
-    return PendingPaste(createRequestId(), start, end, generation).also { pending = it }
+    val normalizedStart = minOf(start, end)
+    val normalizedEnd = maxOf(start, end)
+    return PendingPaste(createRequestId(), normalizedStart, normalizedEnd, generation).also { pending = it }
   }
 
   fun consume(requestId: String): PendingPaste? {

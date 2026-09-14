@@ -437,8 +437,9 @@ class EnrichedTextInputView :
       }
     val plainText = items.joinToString("\n") { (it.text ?: it.coerceToText(context)).toString() }
 
-    val start = selectionStart.coerceAtLeast(0)
-    val end = selectionEnd.coerceAtLeast(start)
+    val start = selectionStart
+    val end = selectionEnd
+    if (start < 0 || end < 0) return false
     val reactContext = context as ReactContext
     val surfaceId = UIManagerHelper.getSurfaceId(reactContext)
     val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, id) ?: return false
@@ -480,7 +481,9 @@ class EnrichedTextInputView :
     val editable = text as? Editable ?: return false
     if (pending.start !in 0..pending.end || pending.end > editable.length) return false
     if (!isEnabled || !hasFocus()) return false
-    if (selectionStart != pending.start || selectionEnd != pending.end) return false
+    val currentStart = minOf(selectionStart, selectionEnd)
+    val currentEnd = maxOf(selectionStart, selectionEnd)
+    if (currentStart != pending.start || currentEnd != pending.end) return false
 
     val parsed = parseText(html)
     val pastedSpannable = (parsed as? Spannable) ?: SpannableString(parsed)

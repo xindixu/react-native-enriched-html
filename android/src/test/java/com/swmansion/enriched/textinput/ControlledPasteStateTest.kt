@@ -24,6 +24,16 @@ class ControlledPasteStateTest {
   }
 
   @Test
+  fun `paste capture normalizes a backward selection`() {
+    state.enabled = true
+
+    val pending = state.capture(5, 2)
+
+    assertEquals(2, pending?.start)
+    assertEquals(5, pending?.end)
+  }
+
+  @Test
   fun `new paste replaces old request without letting stale completion consume it`() {
     state.enabled = true
     val oldRequest = state.capture(1, 1)!!
