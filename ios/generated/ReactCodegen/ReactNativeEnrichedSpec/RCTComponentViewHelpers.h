@@ -39,6 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)addImage:(NSString *)uri width:(float)width height:(float)height;
 - (void)startMention:(NSString *)indicator;
 - (void)addMention:(NSString *)indicator text:(NSString *)text payload:(NSString *)payload;
+- (void)completePaste:(NSString *)requestId html:(NSString *)html;
 - (void)requestHTML:(NSInteger)requestId;
 - (void)setTextAlignment:(NSString *)alignment;
 @end
@@ -515,6 +516,34 @@ NSObject *arg2 = args[2];
   NSString * payload = (NSString *)arg2;
 
   [componentView addMention:indicator text:text payload:payload];
+  return;
+}
+
+if ([commandName isEqualToString:@"completePaste"]) {
+#if RCT_DEBUG
+  if ([args count] != 2) {
+    RCTLogError(@"%@ command %@ received %d arguments, expected %d.", @"EnrichedTextInputView", commandName, (int)[args count], 2);
+    return;
+  }
+#endif
+
+  NSObject *arg0 = args[0];
+#if RCT_DEBUG
+  if (!RCTValidateTypeOfViewCommandArgument(arg0, [NSString class], @"string", @"EnrichedTextInputView", commandName, @"1st")) {
+    return;
+  }
+#endif
+  NSString * requestId = (NSString *)arg0;
+
+NSObject *arg1 = args[1];
+#if RCT_DEBUG
+  if (!RCTValidateTypeOfViewCommandArgument(arg1, [NSString class], @"string", @"EnrichedTextInputView", commandName, @"2nd")) {
+    return;
+  }
+#endif
+  NSString * html = (NSString *)arg1;
+
+  [componentView completePaste:requestId html:html];
   return;
 }
 

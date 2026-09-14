@@ -5,6 +5,7 @@ import type {
   Float,
   Int32,
   UnsafeMixed,
+  WithDefault,
 } from 'react-native/Libraries/Types/CodegenTypes';
 import type { ColorValue, HostComponent, ViewProps } from 'react-native';
 import React from 'react';
@@ -154,6 +155,17 @@ export interface OnChangeSelectionEvent {
   start: Int32;
   end: Int32;
   text: string;
+}
+
+export interface OnPasteEvent {
+  requestId: string;
+  html: string;
+  text: string;
+}
+
+export interface OnPasteCompleteEvent {
+  requestId: string;
+  applied: boolean;
 }
 
 export interface OnRequestHtmlResultEvent {
@@ -391,6 +403,9 @@ export interface NativeProps extends ViewProps {
   onRequestHtmlResult?: DirectEventHandler<OnRequestHtmlResultEvent>;
   onInputKeyPress?: DirectEventHandler<OnKeyPressEvent>;
   onPasteImages?: DirectEventHandler<OnPasteImagesEvent>;
+  processPaste?: WithDefault<boolean, false>;
+  onPaste?: DirectEventHandler<OnPasteEvent>;
+  onPasteComplete?: DirectEventHandler<OnPasteCompleteEvent>;
   onContextMenuItemPress?: DirectEventHandler<OnContextMenuItemPressEvent>;
   onSubmitEditing?: BubblingEventHandler<OnSubmitEditing>;
 
@@ -474,6 +489,11 @@ interface NativeCommands {
     text: string,
     payload: string
   ) => void;
+  completePaste: (
+    viewRef: React.ElementRef<ComponentType>,
+    requestId: string,
+    html: string
+  ) => void;
   requestHTML: (
     viewRef: React.ElementRef<ComponentType>,
     requestId: Int32
@@ -515,6 +535,7 @@ export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
     'startMention',
     'addMention',
     'requestHTML',
+    'completePaste',
     'setTextAlignment',
   ],
 });

@@ -355,6 +355,11 @@ export interface OnChangeSelectionEvent {
 export interface OnKeyPressEvent {
     key: string;
 }
+export interface OnPasteEvent {
+    requestId: string;
+    html: string;
+    text: string;
+}
 export interface OnPasteImagesEvent {
     images: {
         uri: string;
@@ -389,6 +394,10 @@ export interface EnrichedTextInputInstance extends NativeMethods {
      * The promise resolves once the native layer has completed HTML parsing.
      */
     getHTML: () => Promise<string>;
+    /** Complete a captured paste once. Empty HTML cancels without deleting text.
+     * Resolves false if the request is stale, cancelled, or the editor unmounted.
+     */
+    completePaste: (requestId: string, html: string) => Promise<boolean>;
     /** Toggles bold on the current selection (or toggles it for future typing if nothing is selected). */
     toggleBold: () => void;
     /** Toggles italic on the current selection (or toggles it for future typing if nothing is selected). */
@@ -625,6 +634,11 @@ export interface EnrichedTextInputProps extends Omit<ViewProps, 'children'> {
      * to avoid retaining blob memory. Native uses non-blob URIs; revoke does not apply.
      */
     onPasteImages?: (e: NativeSyntheticEvent<OnPasteImagesEvent>) => void;
+    /** Intercept text/HTML paste before insertion. Complete with normalized HTML
+     * through completePaste. Document, selection, focus, and editability changes
+     * invalidate the captured request. Images keep using onPasteImages.
+     */
+    onPaste?: (e: NativeSyntheticEvent<OnPasteEvent>) => void;
     /**
      * Additional items to inject into the native text-selection context menu
      * (the popover that appears when the user long-presses selected text).

@@ -80,6 +80,9 @@ public class EnrichedTextInputViewManagerDelegate<T extends View, U extends Base
       case "allowFontScaling":
         mViewManager.setAllowFontScaling(view, value == null ? false : (boolean) value);
         break;
+      case "processPaste":
+        mViewManager.setProcessPaste(view, value == null ? false : (boolean) value);
+        break;
       case "color":
         mViewManager.setColor(view, ColorPropConverter.getColor(value, view.getContext()));
         break;
@@ -192,6 +195,9 @@ public class EnrichedTextInputViewManagerDelegate<T extends View, U extends Base
         break;
       case "addMention":
         mViewManager.addMention(view, args.getString(0), args.getString(1), args.getString(2));
+        break;
+      case "completePaste":
+        mViewManager.completePaste(view, args.getString(0), args.getString(1));
         break;
       case "requestHTML":
         mViewManager.requestHTML(view, args.getInt(0));

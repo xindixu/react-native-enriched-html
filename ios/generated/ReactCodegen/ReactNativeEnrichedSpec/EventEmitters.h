@@ -214,6 +214,17 @@ class EnrichedTextInputViewEventEmitter : public ViewEventEmitter {
       std::vector<OnPasteImagesImages> images;
     };
 
+  struct OnPaste {
+      std::string requestId;
+    std::string html;
+    std::string text;
+    };
+
+  struct OnPasteComplete {
+      std::string requestId;
+    bool applied;
+    };
+
   struct OnContextMenuItemPressStyleStateBold {
       bool isActive;
     bool isConflicting;
@@ -385,6 +396,10 @@ class EnrichedTextInputViewEventEmitter : public ViewEventEmitter {
   void onInputKeyPress(OnInputKeyPress value) const;
 
   void onPasteImages(OnPasteImages value) const;
+
+  void onPaste(OnPaste value) const;
+
+  void onPasteComplete(OnPasteComplete value) const;
 
   void onContextMenuItemPress(OnContextMenuItemPress value) const;
 
