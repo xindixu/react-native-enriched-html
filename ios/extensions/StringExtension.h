@@ -7,6 +7,7 @@
 + (NSString *)fromCppString:(std::string)string;
 + (NSString *)stringByEscapingHtml:(NSString *)html;
 + (NSDictionary *)getEscapedCharactersInfoFrom:(NSString *)text;
++ (NSString *)stringByUnescapingHtml:(NSString *)text;
 @end
 
 @interface NSMutableString (StringExtension)

@@ -771,7 +771,12 @@
       [styleArr addObject:@([MentionStyle getType])];
       // extract html expression into dict using some regex
       NSMutableDictionary *paramsDict = [[NSMutableDictionary alloc] init];
-      NSString *pattern = @"(\\w+)=(['\"])(.*?)\\2";
+      // The name class excludes only what cannot appear in an attribute name,
+      // so a hyphenated name survives. `\w` would end the name at its last
+      // word segment, parsing `data-mention-id` as `id`. This dictionary is
+      // the mention's whole identity and is replayed on export, so such a
+      // truncated name is what a later getHTML would return.
+      NSString *pattern = @"([^\\s=\"'<>/]+)=(['\"])(.*?)\\2";
       NSRegularExpression *regex =
           [NSRegularExpression regularExpressionWithPattern:pattern
                                                     options:0
@@ -793,7 +798,14 @@
                            }];
 
       MentionParams *mentionParams = [[MentionParams alloc] init];
-      mentionParams.text = paramsDict[@"text"];
+      // `text` is compared against the buffer to decide whether the user has
+      // edited this mention, and the buffer holds decoded text while attribute
+      // values are captured verbatim. Without this the two never match for a
+      // label holding `&`, `<`, `>`, or a numeric reference, and the mention is
+      // dropped as edited. The remaining attributes stay verbatim: they carry
+      // identity rather than text, and decoding them would rewrite an ID.
+      mentionParams.text =
+          [NSString stringByUnescapingHtml:paramsDict[@"text"]];
       mentionParams.indicator = paramsDict[@"indicator"];
 
       [paramsDict removeObjectsForKeys:@[ @"text", @"indicator" ]];
