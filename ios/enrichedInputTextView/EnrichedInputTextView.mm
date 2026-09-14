@@ -192,7 +192,13 @@
                                     encoding:NSUTF8StringEncoding]
             : ([htmlValue isKindOfClass:[NSString class]] ? htmlValue : nil);
     NSString *plainText = [self plainTextInPasteboard:pasteboard];
-    if (html != nil || plainText != nil) {
+    // Preserve default handling for HTML that may contain an image.
+    BOOL containsImage =
+        html != nil &&
+        [html rangeOfString:@"<img(?=[\\s/>])"
+                    options:NSRegularExpressionSearch | NSCaseInsensitiveSearch]
+                .location != NSNotFound;
+    if (!containsImage && (html != nil || plainText != nil)) {
       [typedInput beginControlledPasteWithHTML:html ?: @""
                                      plainText:plainText ?: @""
                                          range:currentRange];

@@ -519,6 +519,8 @@ class EnrichedTextInputView :
         .map { clip.getItemAt(it) }
         .filter { it.htmlText != null || it.text != null }
     if (items.isEmpty()) return false
+    // Preserve default handling for any item that may contain an HTML image.
+    if (items.any { containsPasteImage(it.htmlText) }) return false
 
     val html =
       if (items.all { it.htmlText != null }) {
