@@ -1,5 +1,6 @@
 package com.swmansion.enriched.textinput.utils
 
+import android.text.Editable
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
@@ -101,10 +102,21 @@ fun Spannable.mergeSpannables(
   spannable: Spannable,
   htmlStyle: HtmlStyle? = null,
 ): Spannable {
+  val builder = SpannableStringBuilder(this)
+  builder.mergeSpannableInPlace(start, end, spannable, htmlStyle)
+  return builder
+}
+
+fun Editable.mergeSpannableInPlace(
+  start: Int,
+  end: Int,
+  spannable: Spannable,
+  htmlStyle: HtmlStyle? = null,
+): Int {
+  val lengthBefore = length
   var finalStart = start
   var finalEnd = end
 
-  val builder = SpannableStringBuilder(this)
   val startBlockSpans = spannable.getSpans(0, 0, EnrichedBlockSpan::class.java)
   val startParagraphSpans = spannable.getSpans(0, 0, EnrichedParagraphSpan::class.java)
   val endBlockSpans = spannable.getSpans(this.length, this.length, EnrichedBlockSpan::class.java)
@@ -118,40 +130,41 @@ fun Spannable.mergeSpannables(
       spannable.getSpans(0, spannable.length, EnrichedParagraphSpan::class.java).isNotEmpty()
 
   if (isNewLineStart && start != paragraphStart) {
-    builder.insert(start, "\n")
+    insert(start, "\n")
     finalStart = start + 1
     finalEnd = end + 1
   }
 
   if (isNewLineEnd && end != paragraphEnd) {
-    builder.insert(finalEnd, "\n")
+    insert(finalEnd, "\n")
   }
 
-  builder.replace(finalStart, finalEnd, spannable)
+  replace(finalStart, finalEnd, spannable)
 
   // Manually extend existing paragraph/block spans to cover the pasted text.
   if (!pastedHasOwnStyles) {
     val pasteEnd = finalStart + spannable.length
 
-    val affectedParagraphSpans = builder.getSpans(finalStart, finalStart, EnrichedParagraphSpan::class.java)
-    val affectedBlockSpans = builder.getSpans(finalStart, finalStart, EnrichedBlockSpan::class.java)
+    val affectedParagraphSpans = getSpans(finalStart, finalStart, EnrichedParagraphSpan::class.java)
+    val affectedBlockSpans = getSpans(finalStart, finalStart, EnrichedBlockSpan::class.java)
     val affectedSpans = affectedBlockSpans.toList() + affectedParagraphSpans.toList()
 
     for (span in affectedSpans) {
-      val spanStart = builder.getSpanStart(span)
-      val spanEnd = builder.getSpanEnd(span)
+      val spanStart = getSpanStart(span)
+      val spanEnd = getSpanEnd(span)
       if (spanStart == -1 || spanEnd >= pasteEnd) continue
 
-      val (_, newParagraphEnd) = builder.getParagraphBounds(spanStart, pasteEnd)
-      val flags = builder.getSpanFlags(span)
-      builder.removeSpan(span)
-      builder.setSpan(span, spanStart, newParagraphEnd, EnrichedSpanFlags.forSpan(span, flags))
+      val (_, newParagraphEnd) = getParagraphBounds(spanStart, pasteEnd)
+      val flags = getSpanFlags(span)
+      removeSpan(span)
+      setSpan(span, spanStart, newParagraphEnd, EnrichedSpanFlags.forSpan(span, flags))
     }
   }
 
   htmlStyle?.let {
-    builder.removeBlockedPasteStyles(finalStart, spannable, it)
+    removeBlockedPasteStyles(finalStart, spannable, it)
   }
 
-  return builder
+  val insertedLength = length - (lengthBefore - (end - start))
+  return (start + insertedLength).coerceIn(0, length)
 }

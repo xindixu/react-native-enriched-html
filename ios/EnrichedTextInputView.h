@@ -44,6 +44,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)emitOnLinkDetectedEvent:(LinkData *)linkData range:(NSRange)range;
 - (void)emitOnMentionEvent:(NSString *)indicator text:(nullable NSString *)text;
 - (void)emitOnPasteImagesEvent:(NSArray<NSDictionary *> *)images;
+- (BOOL)shouldProcessPaste;
+- (void)beginControlledPasteWithHTML:(NSString *)html
+                           plainText:(NSString *)plainText
+                               range:(NSRange)range;
+- (void)invalidatePendingPaste;
 - (void)anyTextMayHaveBeenModified;
 - (void)scheduleRelayoutIfNeeded;
 

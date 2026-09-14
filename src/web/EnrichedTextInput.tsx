@@ -7,7 +7,8 @@ import {
   type CSSProperties,
 } from 'react';
 import './EnrichedText.css';
-import type { Node } from '@tiptap/pm/model';
+import { DOMParser, type Node } from '@tiptap/pm/model';
+import { closeHistory } from '@tiptap/pm/history';
 import type {
   EnrichedTextInputInstance,
   EnrichedTextInputProps,
@@ -120,6 +121,7 @@ export const EnrichedTextInput = ({
   returnKeyType,
   submitBehavior,
   onPasteImages,
+  onPaste,
   onMentionDetected,
   onStartMention,
   onChangeMention,
@@ -157,6 +159,17 @@ export const EnrichedTextInput = ({
 
   const htmlStyleRef = useStableRef(resolvedHtmlStyle);
   const onPasteImagesRef = useStableRef(onPasteImages);
+  const onPasteRef = useStableRef(onPaste);
+  const nextPasteId = useRef(0);
+  const pendingPaste = useRef<{
+    requestId: string;
+    from: number;
+    to: number;
+  } | null>(null);
+  const processPaste = onPaste !== undefined;
+  useEffect(() => {
+    pendingPaste.current = null;
+  }, [editable, processPaste]);
   const mentionIndicatorsRef = useStableRef(mentionIndicators);
   const submitBehaviorRef = useStableRef(submitBehavior);
   const onSubmitEditingRef = useStableRef(onSubmitEditing);
@@ -264,7 +277,20 @@ export const EnrichedTextInput = ({
       onFocus: ({ event }) => {
         onFocus?.(adaptWebToNativeEvent(event, { target: -1 }));
       },
+      onTransaction: ({ transaction }) => {
+        if (
+          transaction.docChanged ||
+          transaction.selectionSet ||
+          transaction.storedMarksSet
+        ) {
+          pendingPaste.current = null;
+        }
+      },
+      onDestroy: () => {
+        pendingPaste.current = null;
+      },
       onBlur: ({ event }) => {
+        pendingPaste.current = null;
         onBlur?.(adaptWebToNativeEvent(event, { target: -1 }));
       },
       onSelectionUpdate: ({ editor: _editor }) => {
@@ -278,12 +304,31 @@ export const EnrichedTextInput = ({
       },
       editorProps: {
         handleKeyDown: (view, event) => handleKeyDown(view.state.doc, event),
-        handlePaste: (_view, event) =>
-          handleClipboardPasteImages(
-            event,
-            () => editorInstanceRef.current,
-            () => onPasteImagesRef.current
-          ),
+        handlePaste: (view, event) => {
+          pendingPaste.current = null;
+          if (
+            handleClipboardPasteImages(
+              event,
+              () => editorInstanceRef.current,
+              () => onPasteImagesRef.current
+            )
+          )
+            return true;
+          const callback = onPasteRef.current;
+          if (!callback || !event.clipboardData) return false;
+          event.preventDefault();
+          const requestId = String(++nextPasteId.current);
+          const { from, to } = view.state.selection;
+          pendingPaste.current = { requestId, from, to };
+          callback(
+            adaptWebToNativeEvent(event, {
+              requestId,
+              html: event.clipboardData.getData('text/html'),
+              text: event.clipboardData.getData('text/plain'),
+            })
+          );
+          return true;
+        },
         attributes: {
           autoCapitalize,
           enterkeyhint: returnKeyTypeToEnterKeyHint(returnKeyType),
@@ -360,6 +405,37 @@ export const EnrichedTextInput = ({
           })
         );
       },
+      completePaste: async (requestId, html) => {
+        const pending = pendingPaste.current;
+        if (!pending || pending.requestId !== requestId) return false;
+        pendingPaste.current = null;
+        if (
+          !html ||
+          editor.isDestroyed ||
+          !editor.isEditable ||
+          !editor.isFocused ||
+          !onPasteRef.current
+        )
+          return false;
+        const content = prepareHtmlForTiptap(
+          html,
+          useHtmlNormalizerRef.current,
+          sanitizationConfigRef.current
+        );
+        const container = document.createElement('div');
+        container.innerHTML = content;
+        const slice = DOMParser.fromSchema(editor.schema).parseSlice(
+          container,
+          { preserveWhitespace: true }
+        );
+        if (!slice.size) return false;
+        const transaction = closeHistory(editor.state.tr).replaceSelection(
+          slice
+        );
+        editor.view.dispatch(transaction.scrollIntoView());
+        editor.view.dispatch(closeHistory(editor.state.tr));
+        return true;
+      },
       getHTML: () =>
         Promise.resolve(
           normalizeHtmlFromTiptap(
@@ -419,7 +495,13 @@ export const EnrichedTextInput = ({
         }
       },
     }),
-    [editor, mentionIndicatorsRef, useHtmlNormalizerRef, sanitizationConfigRef]
+    [
+      editor,
+      mentionIndicatorsRef,
+      useHtmlNormalizerRef,
+      sanitizationConfigRef,
+      onPasteRef,
+    ]
   );
 
   const editorStyle: CSSProperties = useMemo(

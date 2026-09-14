@@ -39,6 +39,9 @@ using namespace facebook::react;
     RCTEnrichedTextInputViewViewProtocol, UITextViewDelegate,
     UIGestureRecognizerDelegate, NSTextStorageDelegate, NSObject>
 
+- (void)completePaste:(NSString *)requestID html:(NSString *)html;
+- (void)restorePasteSnapshot:(NSAttributedString *)snapshot
+                   selection:(NSRange)selection;
 @end
 
 @implementation EnrichedTextInputView {
@@ -62,6 +65,13 @@ using namespace facebook::react;
   NSString *_submitBehavior;
   NSDictionary<NSAttributedStringKey, id> *_capturedAttributesBeforeChange;
   NSString *_recentlyEmittedAlignment;
+  BOOL _processPaste;
+  NSUInteger _mutationGeneration;
+  NSString *_pendingPasteRequestID;
+  NSRange _pendingPasteRange;
+  NSUInteger _pendingPasteGeneration;
+  NSRange _lastObservedSelection;
+  BOOL _hasObservedSelection;
 }
 
 @synthesize blockEmitting = blockEmitting;
@@ -139,6 +149,9 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   blockEmitting = NO;
   _emitFocusBlur = YES;
   _emitTextChange = NO;
+  _processPaste = NO;
+  _mutationGeneration = 0;
+  _hasObservedSelection = NO;
   dotReplacementRange = nullptr;
 
   defaultTypingAttributes =
@@ -686,6 +699,16 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   // editable
   if (newViewProps.editable != textView.editable) {
     textView.editable = newViewProps.editable;
+    if (!newViewProps.editable) {
+      [self invalidatePendingPaste];
+    }
+  }
+
+  if (newViewProps.processPaste != oldViewProps.processPaste) {
+    _processPaste = newViewProps.processPaste;
+    if (!_processPaste) {
+      [self invalidatePendingPaste];
+    }
   }
 
   // useHtmlNormalizer
@@ -731,6 +754,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   // default value - must be set before placeholder to make sure it correctly
   // shows on first mount
   if (newViewProps.defaultValue != oldViewProps.defaultValue) {
+    [self invalidatePendingPaste];
     NSString *newDefaultValue =
         [NSString fromCppString:newViewProps.defaultValue];
 
@@ -1211,6 +1235,12 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 // MARK: - Native commands and events
 
 - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args {
+  if (![commandName isEqualToString:@"focus"] &&
+      ![commandName isEqualToString:@"requestHTML"] &&
+      ![commandName isEqualToString:@"completePaste"]) {
+    [self invalidatePendingPaste];
+  }
+
   if ([commandName isEqualToString:@"focus"]) {
     [self focus];
   } else if ([commandName isEqualToString:@"blur"]) {
@@ -1296,6 +1326,10 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
     if (!_placeholderLabel.isHidden) {
       [self refreshPlaceholderLabelStyles];
     }
+  } else if ([commandName isEqualToString:@"completePaste"]) {
+    NSString *requestID = (NSString *)args[0];
+    NSString *html = (NSString *)args[1];
+    [self completePaste:requestID html:html];
   }
 }
 
@@ -1420,6 +1454,111 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
     emitter->onPasteImages({.images = imagesVector});
   }
+}
+
+- (BOOL)shouldProcessPaste {
+  return _processPaste;
+}
+
+- (void)beginControlledPasteWithHTML:(NSString *)html
+                           plainText:(NSString *)plainText
+                               range:(NSRange)range {
+  NSString *requestID = [NSUUID UUID].UUIDString;
+  _pendingPasteRequestID = requestID;
+  _pendingPasteRange = range;
+  _pendingPasteGeneration = _mutationGeneration;
+  _lastObservedSelection = range;
+  _hasObservedSelection = YES;
+
+  auto emitter = [self getEventEmitter];
+  if (emitter != nullptr) {
+    emitter->onPaste({.requestId = [requestID toCppString],
+                      .html = [html toCppString],
+                      .text = [plainText toCppString]});
+  } else {
+    _pendingPasteRequestID = nil;
+  }
+}
+
+- (void)completePaste:(NSString *)requestID html:(NSString *)html {
+  BOOL matchesPending = [_pendingPasteRequestID isEqualToString:requestID];
+  BOOL canApply = _processPaste && textView.editable &&
+                  textView.isFirstResponder && matchesPending &&
+                  _pendingPasteGeneration == _mutationGeneration &&
+                  NSEqualRanges(_pendingPasteRange, textView.selectedRange) &&
+                  NSMaxRange(_pendingPasteRange) <= textView.textStorage.length;
+  NSRange range = _pendingPasteRange;
+  if (matchesPending) {
+    _pendingPasteRequestID = nil;
+  }
+
+  NSString *htmlDocument = html;
+  if (canApply && html.length > 0 && ![html hasPrefix:@"<html>"]) {
+    htmlDocument = [NSString stringWithFormat:@"<html>%@</html>", html];
+  }
+  NSString *processedHTML = canApply && html.length > 0
+                                ? [parser initiallyProcessHtml:htmlDocument]
+                                : nil;
+  BOOL applied = processedHTML != nil;
+  if (applied) {
+    NSUndoManager *undoManager = textView.undoManager;
+    NSAttributedString *previousText = [textView.textStorage copy];
+    NSRange previousSelection = textView.selectedRange;
+    [undoManager beginUndoGrouping];
+    @try {
+      [undoManager disableUndoRegistration];
+      @try {
+        range.length > 0
+            ? [parser replaceFromHtml:processedHTML range:range]
+            : [parser insertFromHtml:processedHTML location:range.location];
+        [self anyTextMayHaveBeenModified];
+      } @finally {
+        [undoManager enableUndoRegistration];
+      }
+      [undoManager registerUndoWithTarget:self
+                                  handler:^(EnrichedTextInputView *target) {
+                                    [target
+                                        restorePasteSnapshot:previousText
+                                                   selection:previousSelection];
+                                  }];
+      [undoManager setActionName:@"Paste"];
+    } @finally {
+      [undoManager endUndoGrouping];
+    }
+  }
+
+  auto emitter = [self getEventEmitter];
+  if (emitter != nullptr) {
+    emitter->onPasteComplete(
+        {.requestId = [requestID toCppString], .applied = applied});
+  }
+}
+
+- (void)restorePasteSnapshot:(NSAttributedString *)snapshot
+                   selection:(NSRange)selection {
+  NSUndoManager *undoManager = textView.undoManager;
+  NSAttributedString *inverseText = [textView.textStorage copy];
+  NSRange inverseSelection = textView.selectedRange;
+
+  [undoManager disableUndoRegistration];
+  @try {
+    [textView.textStorage setAttributedString:snapshot];
+    textView.selectedRange = selection;
+    [self anyTextMayHaveBeenModified];
+  } @finally {
+    [undoManager enableUndoRegistration];
+  }
+  [undoManager registerUndoWithTarget:self
+                              handler:^(EnrichedTextInputView *target) {
+                                [target restorePasteSnapshot:inverseText
+                                                   selection:inverseSelection];
+                              }];
+  [undoManager setActionName:@"Paste"];
+}
+
+- (void)invalidatePendingPaste {
+  _mutationGeneration += 1;
+  _pendingPasteRequestID = nil;
 }
 
 - (void)emitOnMentionDetectedEvent:(NSString *)text
@@ -1820,6 +1959,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 }
 
 - (void)textViewDidEndEditing:(UITextView *)textView {
+  [self invalidatePendingPaste];
   auto emitter = [self getEventEmitter];
   if (emitter != nullptr && _emitFocusBlur) {
     // send onBlur event
@@ -2012,6 +2152,13 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 }
 
 - (void)textViewDidChangeSelection:(UITextView *)textView {
+  if (!_hasObservedSelection ||
+      !NSEqualRanges(_lastObservedSelection, textView.selectedRange)) {
+    _lastObservedSelection = textView.selectedRange;
+    _hasObservedSelection = YES;
+    [self invalidatePendingPaste];
+  }
+
   // emit the event
   NSString *textAtSelection =
       [[[NSMutableString alloc] initWithString:textView.textStorage.string]
@@ -2133,6 +2280,11 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
     didProcessEditing:(NSTextStorageEditActions)editedMask
                 range:(NSRange)editedRange
        changeInLength:(NSInteger)delta {
+  if ((editedMask &
+       (NSTextStorageEditedCharacters | NSTextStorageEditedAttributes)) != 0) {
+    [self invalidatePendingPaste];
+  }
+
   // iOS replacing quick double space with ". " attributes fix.
   [DotReplacementUtils handleDotReplacement:self
                                 textStorage:textStorage
@@ -2168,6 +2320,13 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
     // for word modification-based changes.
     [attributesManager addDirtyRange:editedRange];
   }
+}
+
+- (void)prepareForRecycle {
+  [super prepareForRecycle];
+  [self invalidatePendingPaste];
+  _processPaste = NO;
+  _hasObservedSelection = NO;
 }
 
 // MARK: - Media attachments delegate

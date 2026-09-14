@@ -47,6 +47,8 @@ import com.swmansion.enriched.textinput.events.MentionHandler
 import com.swmansion.enriched.textinput.events.OnContextMenuItemPressEvent
 import com.swmansion.enriched.textinput.events.OnInputBlurEvent
 import com.swmansion.enriched.textinput.events.OnInputFocusEvent
+import com.swmansion.enriched.textinput.events.OnPasteCompleteEvent
+import com.swmansion.enriched.textinput.events.OnPasteEvent
 import com.swmansion.enriched.textinput.events.OnRequestHtmlResultEvent
 import com.swmansion.enriched.textinput.events.OnSubmitEditingEvent
 import com.swmansion.enriched.textinput.spans.EnrichedInputH1Span
@@ -70,6 +72,7 @@ import com.swmansion.enriched.textinput.utils.EnrichedSelection
 import com.swmansion.enriched.textinput.utils.EnrichedSpanState
 import com.swmansion.enriched.textinput.utils.RichContentReceiver
 import com.swmansion.enriched.textinput.utils.ShortcutsHandler
+import com.swmansion.enriched.textinput.utils.mergeSpannableInPlace
 import com.swmansion.enriched.textinput.utils.mergeSpannables
 import com.swmansion.enriched.textinput.utils.setCheckboxClickListener
 import com.swmansion.enriched.textinput.utils.zwsCountBefore
@@ -127,6 +130,7 @@ class EnrichedTextInputView :
   var shouldEmitOnChangeText: Boolean = false
   var experimentalSynchronousEvents: Boolean = false
   var useHtmlNormalizer: Boolean = false
+  private var controlledPasteState: ControlledPasteState? = null
 
   // Pair: (trigger, style)
   var textShortcuts: List<Pair<String, String>> = emptyList()
@@ -212,6 +216,7 @@ class EnrichedTextInputView :
   }
 
   private fun prepareComponent() {
+    controlledPasteState = ControlledPasteState()
     isSingleLine = false
     isHorizontalScrollBarEnabled = false
     isVerticalScrollBarEnabled = true
@@ -320,6 +325,7 @@ class EnrichedTextInputView :
     selEnd: Int,
   ) {
     super.onSelectionChanged(selStart, selEnd)
+    invalidatePendingPaste()
     selection?.onSelection(selStart, selEnd)
   }
 
@@ -341,6 +347,7 @@ class EnrichedTextInputView :
     if (focused) {
       dispatcher?.dispatchEvent(OnInputFocusEvent(surfaceId, id, experimentalSynchronousEvents))
     } else {
+      invalidatePendingPaste()
       dispatcher?.dispatchEvent(OnInputBlurEvent(surfaceId, id, experimentalSynchronousEvents))
     }
   }
@@ -370,7 +377,15 @@ class EnrichedTextInputView :
     }
   }
 
-  fun handleTextPaste(item: ClipData.Item) {
+  fun handleTextPaste(clip: ClipData) {
+    if (requestControlledPaste(clip)) return
+
+    for (index in 0 until clip.itemCount) {
+      handleTextPaste(clip.getItemAt(index))
+    }
+  }
+
+  private fun handleTextPaste(item: ClipData.Item) {
     val currentText = text as Spannable
     val start = selectionStart.coerceAtLeast(0)
     val end = selectionEnd.coerceAtLeast(0)
@@ -403,6 +418,118 @@ class EnrichedTextInputView :
     // Update links and mentions in the newly pasted range
     val editable = text as? Editable ?: return
     parametrizedStyles?.afterTextChanged(editable, start.coerceAtMost(pasteEnd), pasteEnd)
+  }
+
+  private fun requestControlledPaste(clip: ClipData): Boolean {
+    val pasteState = controlledPasteState ?: return false
+    if (!pasteState.enabled) return false
+    val items =
+      (0 until clip.itemCount)
+        .map { clip.getItemAt(it) }
+        .filter { it.htmlText != null || it.text != null }
+    if (items.isEmpty()) return false
+
+    val html =
+      if (items.all { it.htmlText != null }) {
+        items.joinToString("\n") { it.htmlText.orEmpty() }
+      } else {
+        ""
+      }
+    val plainText = items.joinToString("\n") { (it.text ?: it.coerceToText(context)).toString() }
+
+    val start = selectionStart.coerceAtLeast(0)
+    val end = selectionEnd.coerceAtLeast(start)
+    val reactContext = context as ReactContext
+    val surfaceId = UIManagerHelper.getSurfaceId(reactContext)
+    val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, id) ?: return false
+    val pending = pasteState.capture(start, end) ?: return false
+    dispatcher.dispatchEvent(
+      OnPasteEvent(
+        surfaceId,
+        id,
+        pending.requestId,
+        html,
+        plainText,
+        experimentalSynchronousEvents,
+      ),
+    )
+    return true
+  }
+
+  fun completePaste(
+    requestId: String,
+    html: String,
+  ) {
+    val pending = controlledPasteState?.consume(requestId)
+    val applied =
+      pending != null &&
+        html.isNotEmpty() &&
+        try {
+          applyControlledPaste(pending, html)
+        } catch (exception: Exception) {
+          Log.e(TAG, "Failed to complete controlled paste", exception)
+          false
+        }
+    emitPasteComplete(requestId, applied)
+  }
+
+  private fun applyControlledPaste(
+    pending: PendingPaste,
+    html: String,
+  ): Boolean {
+    val editable = text as? Editable ?: return false
+    if (pending.start !in 0..pending.end || pending.end > editable.length) return false
+    if (!isEnabled || !hasFocus()) return false
+    if (selectionStart != pending.start || selectionEnd != pending.end) return false
+
+    val parsed = parseText(html)
+    val pastedSpannable = (parsed as? Spannable) ?: SpannableString(parsed)
+    var pasteEnd = pending.start
+
+    runAsATransaction {
+      beginBatchEdit()
+      try {
+        pasteEnd =
+          editable.mergeSpannableInPlace(
+            pending.start,
+            pending.end,
+            pastedSpannable,
+            htmlStyle,
+          )
+        applyLineSpacing()
+        observeAsyncImages()
+        setSelection(pasteEnd)
+      } finally {
+        endBatchEdit()
+      }
+    }
+    layoutManager.invalidateLayout()
+    parametrizedStyles?.afterTextChanged(editable, pending.start.coerceAtMost(pasteEnd), pasteEnd)
+    return true
+  }
+
+  private fun emitPasteComplete(
+    requestId: String,
+    applied: Boolean,
+  ) {
+    val reactContext = context as ReactContext
+    val surfaceId = UIManagerHelper.getSurfaceId(reactContext)
+    val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)
+    dispatcher?.dispatchEvent(
+      OnPasteCompleteEvent(surfaceId, id, requestId, applied, experimentalSynchronousEvents),
+    )
+  }
+
+  fun setProcessPaste(enabled: Boolean) {
+    controlledPasteState?.enabled = enabled
+  }
+
+  fun invalidatePendingPaste() {
+    controlledPasteState?.invalidate()
+  }
+
+  fun recycle() {
+    controlledPasteState?.recycle()
   }
 
   fun requestFocusProgrammatically() {
@@ -445,6 +572,7 @@ class EnrichedTextInputView :
     shouldParseHtml: Boolean = true,
   ) {
     if (value == null) return
+    invalidatePendingPaste()
 
     runAsATransaction {
       val newText = if (shouldParseHtml) parseText(value) else value
@@ -934,6 +1062,7 @@ class EnrichedTextInputView :
   fun verifyAndToggleStyle(name: String) {
     val isValid = verifyStyle(name)
     if (!isValid) return
+    invalidatePendingPaste()
 
     val (rangeStart, rangeEnd) = getTargetRange(name)
 
@@ -947,6 +1076,7 @@ class EnrichedTextInputView :
   fun toggleCheckboxListItem(checked: Boolean) {
     val isValid = verifyStyle(EnrichedSpans.CHECKBOX_LIST)
     if (!isValid) return
+    invalidatePendingPaste()
 
     listStyles?.toggleCheckboxListStyle(checked)
   }
@@ -959,6 +1089,7 @@ class EnrichedTextInputView :
   ) {
     val isValid = verifyStyle(EnrichedSpans.LINK)
     if (!isValid) return
+    invalidatePendingPaste()
 
     parametrizedStyles?.setLinkSpan(getActualIndex(start), getActualIndex(end), text, url)
   }
@@ -967,6 +1098,7 @@ class EnrichedTextInputView :
     start: Int,
     end: Int,
   ) {
+    invalidatePendingPaste()
     parametrizedStyles?.removeLinkSpans(getActualIndex(start), getActualIndex(end))
   }
 
@@ -977,6 +1109,7 @@ class EnrichedTextInputView :
   ) {
     val isValid = verifyStyle(EnrichedSpans.IMAGE)
     if (!isValid) return
+    invalidatePendingPaste()
 
     parametrizedStyles?.setImageSpan(src, width, height)
     layoutManager.invalidateLayout()
@@ -985,6 +1118,7 @@ class EnrichedTextInputView :
   fun startMention(indicator: String) {
     val isValid = verifyStyle(EnrichedSpans.MENTION)
     if (!isValid) return
+    invalidatePendingPaste()
 
     parametrizedStyles?.startMention(indicator)
   }
@@ -996,11 +1130,13 @@ class EnrichedTextInputView :
   ) {
     val isValid = verifyStyle(EnrichedSpans.MENTION)
     if (!isValid) return
+    invalidatePendingPaste()
 
     parametrizedStyles?.setMentionSpan(text, indicator, attributes)
   }
 
   fun setTextAlignment(alignment: String) {
+    invalidatePendingPaste()
     runAsATransaction {
       alignmentStyles?.setAlignment(alignment)
     }

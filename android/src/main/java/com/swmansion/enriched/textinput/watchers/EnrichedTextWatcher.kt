@@ -58,6 +58,7 @@ class EnrichedTextWatcher(
     before: Int,
     count: Int,
   ) {
+    view.invalidatePendingPaste()
     startCursorPosition = start
     endCursorPosition = start + count
     view.layoutManager.invalidateLayout()

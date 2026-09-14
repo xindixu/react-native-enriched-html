@@ -73,6 +73,7 @@ export const EnrichedTextInput = ({
   onChangeSelection,
   onKeyPress,
   onSubmitEditing,
+  onPaste,
   returnKeyType,
   returnKeyLabel,
   submitBehavior,
@@ -86,6 +87,7 @@ export const EnrichedTextInput = ({
 }: EnrichedTextInputProps) => {
   const nativeRef = useRef<ComponentType | null>(null);
 
+  const pendingPastes = useRef(new Map<string, (applied: boolean) => void>());
   const nextHtmlRequestId = useRef(1);
   const pendingHtmlRequests = useRef(new Map<number, HtmlRequest>());
 
@@ -135,11 +137,14 @@ export const EnrichedTextInput = ({
 
   useEffect(() => {
     const pendingRequests = pendingHtmlRequests.current;
+    const pastes = pendingPastes.current;
     return () => {
       pendingRequests.forEach(({ reject }) => {
         reject(new Error('Component unmounted'));
       });
       pendingRequests.clear();
+      pastes.forEach((resolve) => resolve(false));
+      pastes.clear();
     };
   }, []);
 
@@ -182,6 +187,20 @@ export const EnrichedTextInput = ({
     },
     setValue: (value: string) => {
       Commands.setValue(nullthrows(nativeRef.current), value);
+    },
+    completePaste: (requestId: string, html: string) => {
+      const view = nativeRef.current;
+      if (!view || pendingPastes.current.has(requestId))
+        return Promise.resolve(false);
+      return new Promise<boolean>((resolve) => {
+        pendingPastes.current.set(requestId, resolve);
+        try {
+          Commands.completePaste(view, requestId, html);
+        } catch {
+          pendingPastes.current.delete(requestId);
+          resolve(false);
+        }
+      });
     },
     getHTML: () => {
       return new Promise<string>((resolve, reject) => {
@@ -354,6 +373,13 @@ export const EnrichedTextInput = ({
       onMention={handleMentionEvent}
       onChangeSelection={onChangeSelection}
       onRequestHtmlResult={handleRequestHtmlResult}
+      processPaste={onPaste !== undefined}
+      onPaste={onPaste}
+      onPasteComplete={({ nativeEvent: { requestId, applied } }) => {
+        const resolve = pendingPastes.current.get(requestId);
+        pendingPastes.current.delete(requestId);
+        resolve?.(applied);
+      }}
       onInputKeyPress={onKeyPress}
       contextMenuItems={nativeContextMenuItems}
       textShortcuts={textShortcuts}
