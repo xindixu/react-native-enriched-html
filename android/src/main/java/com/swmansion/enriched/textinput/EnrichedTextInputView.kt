@@ -23,6 +23,7 @@ import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
+import android.view.inputmethod.CorrectionInfo
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
@@ -580,6 +581,7 @@ class EnrichedTextInputView :
         .fromHtml(controlledPasteHtmlDocument(html), htmlStyle, spannableFactory, linkRegex)
         .trimEnd('\n')
     val pastedSpannable = (parsed as? Spannable) ?: SpannableString(parsed)
+    val replacedText = editable.subSequence(pending.start, pending.end).toString()
     val beforeSnapshot = captureRichTextSnapshot(editable)
     val finalText = editable.mergeSpannables(pending.start, pending.end, pastedSpannable, htmlStyle)
     val insertedLength = finalText.length - (editable.length - (pending.end - pending.start))
@@ -597,6 +599,11 @@ class EnrichedTextInputView :
     }
     layoutManager.invalidateLayout()
     parametrizedStyles?.afterTextChanged(editable, pending.start.coerceAtMost(pasteEnd), pasteEnd)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      // Android 8+ freezes the last native undo edit after showing this correction highlight.
+      // Supplying the actual replacement keeps the public notification semantically valid.
+      onCommitCorrection(CorrectionInfo(pending.start, replacedText, replacement.toString()))
+    }
     val afterSnapshot = captureRichTextSnapshot(editable)
     richPasteUndoHistory.record(
       beforeSnapshot.text,
