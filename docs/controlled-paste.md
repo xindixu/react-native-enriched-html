@@ -1,8 +1,9 @@
 # Controlled Paste
 
 Provide `onPaste` to intercept clipboard text and HTML before insertion on web,
-iOS, and Android. Without this callback, paste keeps its default behavior.
-Pasted images continue through `onPasteImages`.
+iOS, and Android 8 or newer. Android 7 keeps its default paste behavior even
+when this callback is provided. Without the callback, paste keeps its default
+behavior on every platform. Pasted images continue through `onPasteImages`.
 
 ```tsx
 <EnrichedTextInput

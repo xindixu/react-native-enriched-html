@@ -668,7 +668,8 @@ class EnrichedTextInputView :
   }
 
   fun setProcessPaste(enabled: Boolean) {
-    controlledPasteState?.enabled = enabled
+    // Android 7 cannot isolate a paste from subsequent typing in native undo history.
+    controlledPasteState?.enabled = enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
   }
 
   fun invalidatePendingPaste() {
