@@ -575,7 +575,10 @@ class EnrichedTextInputView :
     val currentEnd = maxOf(selectionStart, selectionEnd)
     if (currentStart != pending.start || currentEnd != pending.end) return false
 
-    val parsed = parseText(html)
+    val parsed =
+      EnrichedParser
+        .fromHtml(controlledPasteHtmlDocument(html), htmlStyle, spannableFactory, linkRegex)
+        .trimEnd('\n')
     val pastedSpannable = (parsed as? Spannable) ?: SpannableString(parsed)
     val beforeSnapshot = captureRichTextSnapshot(editable)
     val finalText = editable.mergeSpannables(pending.start, pending.end, pastedSpannable, htmlStyle)
