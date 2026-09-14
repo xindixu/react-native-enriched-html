@@ -72,7 +72,6 @@ import com.swmansion.enriched.textinput.utils.EnrichedSelection
 import com.swmansion.enriched.textinput.utils.EnrichedSpanState
 import com.swmansion.enriched.textinput.utils.RichContentReceiver
 import com.swmansion.enriched.textinput.utils.ShortcutsHandler
-import com.swmansion.enriched.textinput.utils.mergeSpannableInPlace
 import com.swmansion.enriched.textinput.utils.mergeSpannables
 import com.swmansion.enriched.textinput.utils.setCheckboxClickListener
 import com.swmansion.enriched.textinput.utils.zwsCountBefore
@@ -81,6 +80,19 @@ import com.swmansion.enriched.textinput.watchers.EnrichedTextWatcher
 import java.util.regex.Pattern
 import java.util.regex.PatternSyntaxException
 import kotlin.math.ceil
+
+private data class RichSpanSnapshot(
+  val span: EnrichedInputSpan,
+  val start: Int,
+  val end: Int,
+  val flags: Int,
+)
+
+private data class RichTextSnapshot(
+  val text: String,
+  val fingerprint: String,
+  val spans: List<RichSpanSnapshot>,
+)
 
 class EnrichedTextInputView :
   AppCompatEditText,
@@ -131,6 +143,10 @@ class EnrichedTextInputView :
   var experimentalSynchronousEvents: Boolean = false
   var useHtmlNormalizer: Boolean = false
   private var controlledPasteState: ControlledPasteState? = null
+  private val richPasteUndoHistory = RichPasteUndoHistory<RichTextSnapshot>()
+  private var isPerformingUndoRedo = false
+  internal var isReconcilingRichPasteUndo = false
+    private set
 
   // Pair: (trigger, style)
   var textShortcuts: List<Pair<String, String>> = emptyList()
@@ -358,8 +374,82 @@ class EnrichedTextInputView :
         handleCustomCopy()
         return true
       }
+
+      android.R.id.undo,
+      android.R.id.redo,
+      -> {
+        return handleRichPasteUndoRedo(id)
+      }
     }
     return super.onTextContextMenuItem(id)
+  }
+
+  private fun handleRichPasteUndoRedo(id: Int): Boolean {
+    if (!richPasteUndoHistory.hasEntries()) return super.onTextContextMenuItem(id)
+
+    val hasDirectionalEntries =
+      if (id == android.R.id.undo) {
+        richPasteUndoHistory.hasUndoEntries()
+      } else {
+        richPasteUndoHistory.hasRedoEntries()
+      }
+    if (!hasDirectionalEntries) return performNativeUndoRedo(id)
+
+    val before = text as? Editable ?: return performNativeUndoRedo(id)
+    val textBefore = before.toString()
+    val fingerprintBefore = EnrichedParser.toHtmlWithDefault(before)
+    val shouldReconcile =
+      if (id == android.R.id.undo) {
+        richPasteUndoHistory.shouldReconcileUndo(textBefore, fingerprintBefore)
+      } else {
+        richPasteUndoHistory.shouldReconcileRedo(textBefore, fingerprintBefore)
+      }
+    if (!shouldReconcile) return performNativeUndoRedo(id)
+
+    var reconciled = false
+
+    isPerformingUndoRedo = true
+    isReconcilingRichPasteUndo = true
+    try {
+      var handled = false
+      runAsATransaction {
+        handled = super.onTextContextMenuItem(id)
+        val after = text as? Editable
+        if (handled && after != null) {
+          val snapshot =
+            if (id == android.R.id.undo) {
+              richPasteUndoHistory.afterUndo(textBefore, after.toString(), fingerprintBefore)
+            } else {
+              richPasteUndoHistory.afterRedo(textBefore, after.toString(), fingerprintBefore)
+            }
+          if (snapshot != null) {
+            reconciled = restoreRichTextSnapshot(after, snapshot)
+            if (!reconciled) richPasteUndoHistory.clear()
+          }
+        }
+      }
+      return handled
+    } finally {
+      isReconcilingRichPasteUndo = false
+      isPerformingUndoRedo = false
+      if (reconciled) {
+        val editable = text as? Editable
+        if (editable != null) {
+          layoutManager.invalidateLayout()
+          selection?.validateStyles()
+          spanWatcher?.emitEvent(editable, null)
+        }
+      }
+    }
+  }
+
+  private fun performNativeUndoRedo(id: Int): Boolean {
+    isPerformingUndoRedo = true
+    return try {
+      super.onTextContextMenuItem(id)
+    } finally {
+      isPerformingUndoRedo = false
+    }
   }
 
   private fun handleCustomCopy() {
@@ -487,27 +577,71 @@ class EnrichedTextInputView :
 
     val parsed = parseText(html)
     val pastedSpannable = (parsed as? Spannable) ?: SpannableString(parsed)
-    var pasteEnd = pending.start
+    val beforeSnapshot = captureRichTextSnapshot(editable)
+    val finalText = editable.mergeSpannables(pending.start, pending.end, pastedSpannable, htmlStyle)
+    val insertedLength = finalText.length - (editable.length - (pending.end - pending.start))
+    val pasteEnd = (pending.start + insertedLength).coerceIn(0, finalText.length)
+    val replacement = finalText.subSequence(pending.start, pasteEnd)
+    if (pending.start == pending.end && replacement.isEmpty()) return false
+    val preparedSnapshot = captureRichTextSnapshot(finalText)
 
     runAsATransaction {
-      beginBatchEdit()
-      try {
-        pasteEnd =
-          editable.mergeSpannableInPlace(
-            pending.start,
-            pending.end,
-            pastedSpannable,
-            htmlStyle,
-          )
-        applyLineSpacing()
-        observeAsyncImages()
-        setSelection(pasteEnd)
-      } finally {
-        endBatchEdit()
-      }
+      // Keep this non-empty replacement even when its plain text is unchanged: Android records
+      // it as one native undo operation, while its UndoInputFilter intentionally drops spans.
+      editable.replace(pending.start, pending.end, replacement)
+      restoreRichTextSnapshot(editable, preparedSnapshot)
+      setSelection(pasteEnd)
     }
     layoutManager.invalidateLayout()
     parametrizedStyles?.afterTextChanged(editable, pending.start.coerceAtMost(pasteEnd), pasteEnd)
+    val afterSnapshot = captureRichTextSnapshot(editable)
+    richPasteUndoHistory.record(
+      beforeSnapshot.text,
+      afterSnapshot.text,
+      beforeSnapshot.fingerprint,
+      afterSnapshot.fingerprint,
+      beforeSnapshot,
+      afterSnapshot,
+    )
+    return true
+  }
+
+  private fun captureRichTextSnapshot(spannable: Spannable): RichTextSnapshot {
+    val spans =
+      spannable
+        .getSpans(0, spannable.length, EnrichedInputSpan::class.java)
+        .mapNotNull { span ->
+          val start = spannable.getSpanStart(span)
+          val end = spannable.getSpanEnd(span)
+          if (start < 0 || end < start || end > spannable.length) return@mapNotNull null
+          RichSpanSnapshot(span.rebuildWithStyle(htmlStyle), start, end, spannable.getSpanFlags(span))
+        }
+    return RichTextSnapshot(
+      spannable.toString(),
+      EnrichedParser.toHtmlWithDefault(spannable),
+      spans,
+    )
+  }
+
+  private fun restoreRichTextSnapshot(
+    editable: Editable,
+    snapshot: RichTextSnapshot,
+  ): Boolean {
+    if (editable.toString() != snapshot.text) return false
+
+    editable
+      .getSpans(0, editable.length, EnrichedInputSpan::class.java)
+      .forEach(editable::removeSpan)
+    snapshot.spans.forEach { saved ->
+      editable.setSpan(
+        saved.span.rebuildWithStyle(htmlStyle),
+        saved.start,
+        saved.end,
+        saved.flags,
+      )
+    }
+    applyLineSpacing()
+    observeAsyncImages()
     return true
   }
 
@@ -531,8 +665,13 @@ class EnrichedTextInputView :
     controlledPasteState?.invalidate()
   }
 
+  fun onDocumentTextMutation() {
+    if (!isPerformingUndoRedo) richPasteUndoHistory.onNewEdit()
+  }
+
   fun recycle() {
     controlledPasteState?.recycle()
+    richPasteUndoHistory.clear()
   }
 
   fun requestFocusProgrammatically() {
@@ -576,6 +715,7 @@ class EnrichedTextInputView :
   ) {
     if (value == null) return
     invalidatePendingPaste()
+    richPasteUndoHistory.clear()
 
     runAsATransaction {
       val newText = if (shouldParseHtml) parseText(value) else value

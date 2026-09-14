@@ -86,6 +86,8 @@ class EnrichedSpanWatcher(
     s: Spannable,
     what: Any?,
   ) {
+    if (view.isReconcilingRichPasteUndo) return
+
     // Do not parse spannable and emit event if onChangeHtml is not provided
     if (!view.shouldEmitHtml) return
 
