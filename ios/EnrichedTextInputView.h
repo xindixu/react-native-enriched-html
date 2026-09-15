@@ -51,6 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)invalidatePendingPaste;
 - (void)anyTextMayHaveBeenModified;
 - (void)scheduleRelayoutIfNeeded;
+- (void)emitCaretChange;
 
 @end
 

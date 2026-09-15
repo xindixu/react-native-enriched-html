@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.BlendMode
 import android.graphics.BlendModeColorFilter
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.text.LineBreaker
@@ -34,6 +35,7 @@ import com.facebook.react.bridge.ReactContext
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.common.ReactConstants
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.views.text.ReactTypefaceUtils.applyStyles
@@ -45,6 +47,7 @@ import com.swmansion.enriched.common.GumboNormalizer
 import com.swmansion.enriched.common.parser.EnrichedParser
 import com.swmansion.enriched.common.pixelFromSpOrDp
 import com.swmansion.enriched.textinput.events.MentionHandler
+import com.swmansion.enriched.textinput.events.OnCaretChangeEvent
 import com.swmansion.enriched.textinput.events.OnContextMenuItemPressEvent
 import com.swmansion.enriched.textinput.events.OnInputBlurEvent
 import com.swmansion.enriched.textinput.events.OnInputFocusEvent
@@ -98,6 +101,8 @@ private data class RichTextSnapshot(
 class EnrichedTextInputView :
   AppCompatEditText,
   TextView.OnEditorActionListener {
+  private var lastCaretGeometry: CaretGeometry? = null
+
   var stateWrapper: StateWrapper? = null
   val selection: EnrichedSelection? = EnrichedSelection(this)
   val spanState: EnrichedSpanState? = EnrichedSpanState(this)
@@ -336,6 +341,30 @@ class EnrichedTextInputView :
   override fun canScrollVertically(direction: Int): Boolean = scrollEnabled
 
   override fun canScrollHorizontally(direction: Int): Boolean = scrollEnabled
+
+  // Drawing runs after text layout, including internal scrolling and span reflow.
+  override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    val textLayout = layout ?: return
+    val offset = selectionEnd
+    if (offset < 0 || offset > textLayout.text.length) return
+    val line = textLayout.getLineForOffset(offset)
+    val x = totalPaddingLeft + textLayout.getPrimaryHorizontal(offset) - scrollX
+    val y = totalPaddingTop + textLayout.getLineTop(line) - scrollY
+    val caretHeight = textLayout.getLineBottom(line) - textLayout.getLineTop(line)
+    val geometry =
+      CaretGeometry(
+        PixelUtil.toDIPFromPixel(x),
+        PixelUtil.toDIPFromPixel(y.toFloat()),
+        PixelUtil.toDIPFromPixel(caretHeight.toFloat()),
+        selectionStart == offset && y >= 0 && y + caretHeight <= height && x >= 0 && x <= width,
+      )
+    if (geometry == lastCaretGeometry) return
+    val reactContext = context as? ReactContext ?: return
+    val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, id) ?: return
+    lastCaretGeometry = geometry
+    dispatcher.dispatchEvent(OnCaretChangeEvent(UIManagerHelper.getSurfaceId(reactContext), id, geometry))
+  }
 
   override fun onSelectionChanged(
     selStart: Int,
