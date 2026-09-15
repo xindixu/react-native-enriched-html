@@ -38,6 +38,7 @@ EnrichedTextInputViewProps::EnrichedTextInputViewProps(
     returnKeyLabel(convertRawProp(context, rawProps, "returnKeyLabel", sourceProps.returnKeyLabel, {})),
     submitBehavior(convertRawProp(context, rawProps, "submitBehavior", sourceProps.submitBehavior, {})),
     allowFontScaling(convertRawProp(context, rawProps, "allowFontScaling", sourceProps.allowFontScaling, {false})),
+    processPaste(convertRawProp(context, rawProps, "processPaste", sourceProps.processPaste, {false})),
     color(convertRawProp(context, rawProps, "color", sourceProps.color, {})),
     fontSize(convertRawProp(context, rawProps, "fontSize", sourceProps.fontSize, {0.0})),
     lineHeight(convertRawProp(context, rawProps, "lineHeight", sourceProps.lineHeight, {0.0})),
@@ -48,7 +49,7 @@ EnrichedTextInputViewProps::EnrichedTextInputViewProps(
     isOnChangeTextSet(convertRawProp(context, rawProps, "isOnChangeTextSet", sourceProps.isOnChangeTextSet, {false})),
     androidExperimentalSynchronousEvents(convertRawProp(context, rawProps, "androidExperimentalSynchronousEvents", sourceProps.androidExperimentalSynchronousEvents, {false})),
     useHtmlNormalizer(convertRawProp(context, rawProps, "useHtmlNormalizer", sourceProps.useHtmlNormalizer, {false})) {}
-    
+
 #ifdef RN_SERIALIZABLE_STATE
 ComponentName EnrichedTextInputViewProps::getDiffPropsImplementationTarget() const {
   return "EnrichedTextInputView";
@@ -64,115 +65,119 @@ folly::dynamic EnrichedTextInputViewProps::getDiffProps(
     return folly::dynamic::object();
   }
   folly::dynamic result = HostPlatformViewProps::getDiffProps(prevProps);
-  
+
   if (autoFocus != oldProps->autoFocus) {
     result["autoFocus"] = autoFocus;
   }
-    
+
   if (editable != oldProps->editable) {
     result["editable"] = editable;
   }
-    
+
   if (defaultValue != oldProps->defaultValue) {
     result["defaultValue"] = defaultValue;
   }
-    
+
   if (placeholder != oldProps->placeholder) {
     result["placeholder"] = placeholder;
   }
-    
+
   if (placeholderTextColor != oldProps->placeholderTextColor) {
     result["placeholderTextColor"] = *placeholderTextColor;
   }
-    
+
   if (mentionIndicators != oldProps->mentionIndicators) {
     result["mentionIndicators"] = toDynamic(mentionIndicators);
   }
-    
+
   if (cursorColor != oldProps->cursorColor) {
     result["cursorColor"] = *cursorColor;
   }
-    
+
   if (selectionColor != oldProps->selectionColor) {
     result["selectionColor"] = *selectionColor;
   }
-    
+
   if (autoCapitalize != oldProps->autoCapitalize) {
     result["autoCapitalize"] = autoCapitalize;
   }
-    
+
   if (htmlStyle != oldProps->htmlStyle) {
     result["htmlStyle"] = toDynamic(htmlStyle);
   }
-    
+
   if (scrollEnabled != oldProps->scrollEnabled) {
     result["scrollEnabled"] = scrollEnabled;
   }
-    
+
   if (linkRegex != oldProps->linkRegex) {
     result["linkRegex"] = toDynamic(linkRegex);
   }
-    
+
   if (contextMenuItems != oldProps->contextMenuItems) {
     result["contextMenuItems"] = toDynamic(contextMenuItems);
   }
-    
+
   if (textShortcuts != oldProps->textShortcuts) {
     result["textShortcuts"] = toDynamic(textShortcuts);
   }
-    
+
   if (returnKeyType != oldProps->returnKeyType) {
     result["returnKeyType"] = returnKeyType;
   }
-    
+
   if (returnKeyLabel != oldProps->returnKeyLabel) {
     result["returnKeyLabel"] = returnKeyLabel;
   }
-    
+
   if (submitBehavior != oldProps->submitBehavior) {
     result["submitBehavior"] = submitBehavior;
   }
-    
+
   if (allowFontScaling != oldProps->allowFontScaling) {
     result["allowFontScaling"] = allowFontScaling;
   }
-    
+
+  if (processPaste != oldProps->processPaste) {
+    result["processPaste"] = processPaste;
+  }
+
   if (color != oldProps->color) {
     result["color"] = *color;
   }
-    
+
   if ((fontSize != oldProps->fontSize) && !(std::isnan(fontSize) && std::isnan(oldProps->fontSize))) {
     result["fontSize"] = fontSize;
   }
-    
+
   if ((lineHeight != oldProps->lineHeight) && !(std::isnan(lineHeight) && std::isnan(oldProps->lineHeight))) {
     result["lineHeight"] = lineHeight;
   }
-    
+
   if (fontFamily != oldProps->fontFamily) {
     result["fontFamily"] = fontFamily;
   }
-    
+
   if (fontWeight != oldProps->fontWeight) {
     result["fontWeight"] = fontWeight;
   }
-    
+
   if (fontStyle != oldProps->fontStyle) {
     result["fontStyle"] = fontStyle;
   }
-    
+
   if (isOnChangeHtmlSet != oldProps->isOnChangeHtmlSet) {
     result["isOnChangeHtmlSet"] = isOnChangeHtmlSet;
   }
-    
+
   if (isOnChangeTextSet != oldProps->isOnChangeTextSet) {
     result["isOnChangeTextSet"] = isOnChangeTextSet;
   }
-    
+
   if (androidExperimentalSynchronousEvents != oldProps->androidExperimentalSynchronousEvents) {
     result["androidExperimentalSynchronousEvents"] = androidExperimentalSynchronousEvents;
   }
-    
+
   if (useHtmlNormalizer != oldProps->useHtmlNormalizer) {
     result["useHtmlNormalizer"] = useHtmlNormalizer;
   }
@@ -197,7 +202,7 @@ EnrichedTextViewProps::EnrichedTextViewProps(
     fontFamily(convertRawProp(context, rawProps, "fontFamily", sourceProps.fontFamily, {})),
     fontWeight(convertRawProp(context, rawProps, "fontWeight", sourceProps.fontWeight, {})),
     fontStyle(convertRawProp(context, rawProps, "fontStyle", sourceProps.fontStyle, {})) {}
-    
+
 #ifdef RN_SERIALIZABLE_STATE
 ComponentName EnrichedTextViewProps::getDiffPropsImplementationTarget() const {
   return "EnrichedTextView";
@@ -213,55 +218,55 @@ folly::dynamic EnrichedTextViewProps::getDiffProps(
     return folly::dynamic::object();
   }
   folly::dynamic result = HostPlatformViewProps::getDiffProps(prevProps);
-  
+
   if (text != oldProps->text) {
     result["text"] = text;
   }
-    
+
   if (htmlStyle != oldProps->htmlStyle) {
     result["htmlStyle"] = toDynamic(htmlStyle);
   }
-    
+
   if (useHtmlNormalizer != oldProps->useHtmlNormalizer) {
     result["useHtmlNormalizer"] = useHtmlNormalizer;
   }
-    
+
   if (allowFontScaling != oldProps->allowFontScaling) {
     result["allowFontScaling"] = allowFontScaling;
   }
-    
+
   if (ellipsizeMode != oldProps->ellipsizeMode) {
     result["ellipsizeMode"] = ellipsizeMode;
   }
-    
+
   if (numberOfLines != oldProps->numberOfLines) {
     result["numberOfLines"] = numberOfLines;
   }
-    
+
   if (selectable != oldProps->selectable) {
     result["selectable"] = selectable;
   }
-    
+
   if (selectionColor != oldProps->selectionColor) {
     result["selectionColor"] = *selectionColor;
   }
-    
+
   if (color != oldProps->color) {
     result["color"] = *color;
   }
-    
+
   if ((fontSize != oldProps->fontSize) && !(std::isnan(fontSize) && std::isnan(oldProps->fontSize))) {
     result["fontSize"] = fontSize;
   }
-    
+
   if (fontFamily != oldProps->fontFamily) {
     result["fontFamily"] = fontFamily;
   }
-    
+
   if (fontWeight != oldProps->fontWeight) {
     result["fontWeight"] = fontWeight;
   }
-    
+
   if (fontStyle != oldProps->fontStyle) {
     result["fontStyle"] = fontStyle;
   }

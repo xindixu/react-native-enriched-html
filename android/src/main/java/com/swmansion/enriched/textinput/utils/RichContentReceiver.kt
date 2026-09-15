@@ -27,6 +27,7 @@ class RichContentReceiver(
     view: View,
     contentInfo: ContentInfoCompat,
   ): ContentInfoCompat? {
+    this.view.invalidatePendingPaste()
     val split = contentInfo.partition { item: ClipData.Item -> item.uri != null }
     val uriContent = split.first
     val remaining = split.second
@@ -36,9 +37,7 @@ class RichContentReceiver(
     }
 
     if (remaining != null && remaining.clip.itemCount > 0) {
-      val item = remaining.clip.getItemAt(0)
-
-      this.view.handleTextPaste(item)
+      this.view.handleTextPaste(remaining.clip)
     }
 
     return null

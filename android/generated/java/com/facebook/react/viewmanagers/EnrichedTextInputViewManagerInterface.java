@@ -34,6 +34,7 @@ public interface EnrichedTextInputViewManagerInterface<T extends View> extends V
   void setReturnKeyLabel(T view, @Nullable String value);
   void setSubmitBehavior(T view, @Nullable String value);
   void setAllowFontScaling(T view, boolean value);
+  void setProcessPaste(T view, boolean value);
   void setColor(T view, @Nullable Integer value);
   void setFontSize(T view, float value);
   void setLineHeight(T view, float value);
@@ -69,6 +70,7 @@ public interface EnrichedTextInputViewManagerInterface<T extends View> extends V
   void addImage(T view, String uri, float width, float height);
   void startMention(T view, String indicator);
   void addMention(T view, String indicator, String text, String payload);
+  void completePaste(T view, String requestId, String html);
   void requestHTML(T view, int requestId);
   void setTextAlignment(T view, String alignment);
 }

@@ -275,6 +275,27 @@ imagesObject.setProperty(runtime, "height", imagesValue.height);
 }
 
 
+void EnrichedTextInputViewEventEmitter::onPaste(OnPaste event) const {
+  dispatchEvent("paste", [event=std::move(event)](jsi::Runtime &runtime) {
+    auto payload = jsi::Object(runtime);
+    payload.setProperty(runtime, "requestId", event.requestId);
+payload.setProperty(runtime, "html", event.html);
+payload.setProperty(runtime, "text", event.text);
+    return payload;
+  });
+}
+
+
+void EnrichedTextInputViewEventEmitter::onPasteComplete(OnPasteComplete event) const {
+  dispatchEvent("pasteComplete", [event=std::move(event)](jsi::Runtime &runtime) {
+    auto payload = jsi::Object(runtime);
+    payload.setProperty(runtime, "requestId", event.requestId);
+payload.setProperty(runtime, "applied", event.applied);
+    return payload;
+  });
+}
+
+
 void EnrichedTextInputViewEventEmitter::onContextMenuItemPress(OnContextMenuItemPress event) const {
   dispatchEvent("contextMenuItemPress", [event=std::move(event)](jsi::Runtime &runtime) {
     auto payload = jsi::Object(runtime);

@@ -26,6 +26,7 @@ class EnrichedSpanWatcher(
     start: Int,
     end: Int,
   ) {
+    if (what is EnrichedInputSpan) view.invalidatePendingPaste()
     updateNextLineLayout(what, text, end)
     updateUnorderedListSpans(what, text, end)
     emitEvent(text, what)
@@ -37,6 +38,7 @@ class EnrichedSpanWatcher(
     start: Int,
     end: Int,
   ) {
+    if (what is EnrichedInputSpan) view.invalidatePendingPaste()
     updateNextLineLayout(what, text, end)
     updateUnorderedListSpans(what, text, end)
     emitEvent(text, what)
@@ -50,7 +52,7 @@ class EnrichedSpanWatcher(
     nstart: Int,
     nend: Int,
   ) {
-    // Do nothing for now
+    if (what is EnrichedInputSpan) view.invalidatePendingPaste()
   }
 
   private fun updateUnorderedListSpans(
@@ -84,6 +86,8 @@ class EnrichedSpanWatcher(
     s: Spannable,
     what: Any?,
   ) {
+    if (view.isReconcilingRichPasteUndo) return
+
     // Do not parse spannable and emit event if onChangeHtml is not provided
     if (!view.shouldEmitHtml) return
 

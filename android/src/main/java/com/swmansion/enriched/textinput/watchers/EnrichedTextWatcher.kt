@@ -58,6 +58,8 @@ class EnrichedTextWatcher(
     before: Int,
     count: Int,
   ) {
+    view.invalidatePendingPaste()
+    view.onDocumentTextMutation()
     startCursorPosition = start
     endCursorPosition = start + count
     view.layoutManager.invalidateLayout()
@@ -101,6 +103,8 @@ class EnrichedTextWatcher(
 
   private fun emitEvents(s: Editable) {
     emitChangeText(s)
-    view.spanWatcher?.emitEvent(s, null)
+    if (!view.isReconcilingRichPasteUndo) {
+      view.spanWatcher?.emitEvent(s, null)
+    }
   }
 }

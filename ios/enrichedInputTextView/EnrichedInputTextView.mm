@@ -7,6 +7,10 @@
 #import "TextListsUtils.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
+@interface EnrichedInputTextView ()
+- (NSString *)plainTextInPasteboard:(UIPasteboard *)pasteboard;
+@end
+
 @implementation EnrichedInputTextView
 
 - (void)layoutSubviews {
@@ -107,6 +111,8 @@
     return;
   }
 
+  [typedInput invalidatePendingPaste];
+
   UIPasteboard *pasteboard = [UIPasteboard generalPasteboard];
   NSArray<NSString *> *pasteboardTypes = pasteboard.pasteboardTypes;
   NSRange currentRange = typedInput->textView.selectedRange;
@@ -176,6 +182,28 @@
   if (foundImages.count > 0) {
     [typedInput emitOnPasteImagesEvent:foundImages];
     return;
+  }
+
+  if ([typedInput shouldProcessPaste]) {
+    id htmlValue = [pasteboard valueForPasteboardType:UTTypeHTML.identifier];
+    NSString *html =
+        [htmlValue isKindOfClass:[NSData class]]
+            ? [[NSString alloc] initWithData:htmlValue
+                                    encoding:NSUTF8StringEncoding]
+            : ([htmlValue isKindOfClass:[NSString class]] ? htmlValue : nil);
+    NSString *plainText = [self plainTextInPasteboard:pasteboard];
+    // Preserve default handling for HTML that may contain an image.
+    BOOL containsImage =
+        html != nil &&
+        [html rangeOfString:@"<img(?=[\\s/>])"
+                    options:NSRegularExpressionSearch | NSCaseInsensitiveSearch]
+                .location != NSNotFound;
+    if (!containsImage && (html != nil || plainText != nil)) {
+      [typedInput beginControlledPasteWithHTML:html ?: @""
+                                     plainText:plainText ?: @""
+                                         range:currentRange];
+      return;
+    }
   }
 
   if ([pasteboardTypes containsObject:UTTypeHTML.identifier]) {
@@ -264,6 +292,24 @@
 - (void)tryHandlingPlainTextItemsIn:(UIPasteboard *)pasteboard
                               range:(NSRange)range
                               input:(EnrichedTextInputView *)input {
+  NSString *plainText = [self plainTextInPasteboard:pasteboard];
+  if (!plainText) {
+    return;
+  }
+
+  range.length > 0 ? [TextInsertionUtils replaceText:plainText
+                                                  at:range
+                                additionalAttributes:nullptr
+                                                host:input
+                                       withSelection:YES]
+                   : [TextInsertionUtils insertText:plainText
+                                                 at:range.location
+                               additionalAttributes:nullptr
+                                               host:input
+                                      withSelection:YES];
+}
+
+- (NSString *)plainTextInPasteboard:(UIPasteboard *)pasteboard {
   NSArray *existingTypes = pasteboard.pasteboardTypes;
   NSArray *handledTypes = @[
     UTTypeUTF8PlainText.identifier, UTTypePlainText.identifier,
@@ -289,19 +335,9 @@
   }
 
   if (!plainText) {
-    return;
+    return nil;
   }
-
-  range.length > 0 ? [TextInsertionUtils replaceText:plainText
-                                                  at:range
-                                additionalAttributes:nullptr
-                                                host:input
-                                       withSelection:YES]
-                   : [TextInsertionUtils insertText:plainText
-                                                 at:range.location
-                               additionalAttributes:nullptr
-                                               host:input
-                                      withSelection:YES];
+  return plainText;
 }
 
 - (void)cut:(id)sender {

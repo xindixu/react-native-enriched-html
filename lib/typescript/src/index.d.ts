@@ -1,4 +1,4 @@
 export { EnrichedTextInput } from './web/EnrichedTextInput.js';
 export { EnrichedText } from './web/EnrichedText.js';
-export type { EnrichedInputStyle, EnrichedTextInputProps, EnrichedTextProps, OnChangeTextEvent, OnChangeHtmlEvent, OnChangeStateEvent, OnLinkDetected, OnMentionDetected, OnChangeSelectionEvent, OnKeyPressEvent, OnPasteImagesEvent, OnSubmitEditing, HtmlStyle, MentionStyleProperties, FocusEvent, BlurEvent, EnrichedTextInputInstance, EnrichedTextInstance, ContextMenuItem, OnChangeMentionEvent, EnrichedTextHtmlStyle, OnMentionPressEvent, OnLinkPressEvent, TextShortcut, } from './types.js';
+export type { EnrichedInputStyle, EnrichedTextInputProps, EnrichedTextProps, OnChangeTextEvent, OnChangeHtmlEvent, OnChangeStateEvent, OnLinkDetected, OnMentionDetected, OnChangeSelectionEvent, OnKeyPressEvent, OnPasteImagesEvent, OnPasteEvent, OnSubmitEditing, HtmlStyle, MentionStyleProperties, FocusEvent, BlurEvent, EnrichedTextInputInstance, EnrichedTextInstance, ContextMenuItem, OnChangeMentionEvent, EnrichedTextHtmlStyle, OnMentionPressEvent, OnLinkPressEvent, TextShortcut, } from './types.js';
 //# sourceMappingURL=index.d.ts.map
