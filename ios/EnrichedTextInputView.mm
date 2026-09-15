@@ -1747,6 +1747,19 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
                            ? [activeMentionRange rangeValue]
                            : self.textView.selectedRange;
 
+  NSString *currentText = self.textView.textStorage.string;
+  if (NSMaxRange(rangeToUse) > currentText.length)
+    return;
+  BOOL hasTrailingSpace =
+      NSMaxRange(rangeToUse) < currentText.length &&
+      [[NSCharacterSet whitespaceCharacterSet]
+          characterIsMember:[currentText
+                                characterAtIndex:NSMaxRange(rangeToUse)]];
+  NSString *replacement =
+      hasTrailingSpace ? text : [text stringByAppendingString:@" "];
+  if (![self acceptsReplacementText:replacement range:rangeToUse])
+    return;
+
   if ([StyleUtils handleStyleBlocksAndConflicts:[MentionStyle getType]
                                           range:rangeToUse
                                         forHost:self]) {

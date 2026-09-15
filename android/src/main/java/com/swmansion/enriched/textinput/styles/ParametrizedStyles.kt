@@ -383,14 +383,16 @@ class ParametrizedStyles(
 
     val spannable = view.text as SpannableStringBuilder
     val (selectionStart, selectionEnd) = selection.getInlineSelection()
-    val spans = spannable.getSpans(selectionStart, selectionEnd, EnrichedInputMentionSpan::class.java)
+    val start = mentionStart ?: selectionStart
+    val end = mentionEnd ?: selectionEnd
+    val hasTrailingSpace = end < spannable.length && spannable[end] == ' '
+    val replacement = if (hasTrailingSpace) text else "$text "
+    if (!view.acceptsReplacement(spannable, start, end, replacement)) return
 
+    val spans = spannable.getSpans(selectionStart, selectionEnd, EnrichedInputMentionSpan::class.java)
     for (span in spans) {
       spannable.removeSpan(span)
     }
-
-    val start = mentionStart ?: selectionStart
-    val end = mentionEnd ?: selectionEnd
 
     view.runAsATransaction {
       spannable.replace(start, end, text)

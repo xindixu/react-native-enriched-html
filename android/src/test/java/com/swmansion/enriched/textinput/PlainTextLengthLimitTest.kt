@@ -15,6 +15,19 @@ class PlainTextLengthLimitTest {
   }
 
   @Test
+  fun `mention replacement counts name space and selected query`() {
+    assertFalse(acceptsPlainTextReplacement("hey @", 4, 5, "Alice ", 5))
+    assertFalse(acceptsPlainTextReplacement("@", 0, 1, "Alice ", 5))
+    assertTrue(acceptsPlainTextReplacement("@", 0, 1, "Alice ", 6))
+    assertTrue(acceptsPlainTextReplacement("@ ", 0, 1, "Alice", 6))
+    assertFalse(acceptsPlainTextReplacement("@ ", 0, 1, "Alice", 5))
+    assertTrue(acceptsPlainTextReplacement("hey @Al", 4, 7, "Alice ", 10))
+    assertTrue(acceptsPlainTextReplacement("@LongName", 0, 9, "Al ", 3))
+    assertFalse(acceptsPlainTextReplacement("@", 0, 1, "😀 ", 2))
+    assertTrue(acceptsPlainTextReplacement("@", 0, 1, "😀 ", 3))
+  }
+
+  @Test
   fun `invisible input consumes capacity`() {
     assertFalse(acceptsPlainTextReplacement("\u200bhi", 3, 3, "!", 3))
     assertFalse(acceptsPlainTextReplacement("hi", 2, 2, "\u200b", 2))

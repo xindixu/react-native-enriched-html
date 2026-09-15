@@ -479,7 +479,7 @@ class EnrichedTextInputView :
     }
   }
 
-  private fun acceptsReplacement(
+  internal fun acceptsReplacement(
     current: CharSequence,
     start: Int,
     end: Int,
