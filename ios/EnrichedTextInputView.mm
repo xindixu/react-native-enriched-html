@@ -66,6 +66,7 @@ using namespace facebook::react;
   NSDictionary<NSAttributedStringKey, id> *_capturedAttributesBeforeChange;
   NSString *_recentlyEmittedAlignment;
   BOOL _processPaste;
+  NSInteger _maxPlainTextLength;
   NSUInteger _mutationGeneration;
   NSString *_pendingPasteRequestID;
   NSRange _pendingPasteRange;
@@ -153,6 +154,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   _emitFocusBlur = YES;
   _emitTextChange = NO;
   _processPaste = NO;
+  _maxPlainTextLength = -1;
   _mutationGeneration = 0;
   _hasObservedSelection = NO;
   dotReplacementRange = nullptr;
@@ -707,6 +709,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
     }
   }
 
+  _maxPlainTextLength = newViewProps.maxPlainTextLength;
   if (newViewProps.processPaste != oldViewProps.processPaste) {
     _processPaste = newViewProps.processPaste;
     if (!_processPaste) {
@@ -1483,6 +1486,23 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   }
 }
 
+- (BOOL)acceptsReplacementText:(NSString *)text range:(NSRange)range {
+  if (_maxPlainTextLength < 0)
+    return YES;
+  NSUInteger currentLength = textView.textStorage.length;
+  if (NSMaxRange(range) > currentLength)
+    return NO;
+  NSUInteger resultLength = currentLength - range.length + text.length;
+  if (resultLength <= (NSUInteger)_maxPlainTextLength ||
+      resultLength <= currentLength)
+    return YES;
+  auto emitter = [self getEventEmitter];
+  if (emitter != nullptr) {
+    emitter->onMaxLengthExceeded({.maxLength = (int)_maxPlainTextLength});
+  }
+  return NO;
+}
+
 - (void)completePaste:(NSString *)requestID html:(NSString *)html {
   BOOL matchesPending = [_pendingPasteRequestID isEqualToString:requestID];
   BOOL canApply = _processPaste && textView.editable &&
@@ -1503,6 +1523,16 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
                                 ? [parser initiallyProcessHtml:htmlDocument]
                                 : nil;
   BOOL applied = processedHTML != nil;
+  if (applied && _maxPlainTextLength >= 0) {
+    NSString *replacement;
+    @try {
+      replacement = [HtmlParser getTextAndStylesFromHtml:processedHTML
+                                                  config:config][0];
+    } @catch (NSException *exception) {
+      replacement = processedHTML;
+    }
+    applied = [self acceptsReplacementText:replacement range:range];
+  }
   if (applied) {
     NSUndoManager *undoManager = textView.undoManager;
     NSAttributedString *previousText = [textView.textStorage copy];
@@ -1672,6 +1702,8 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
   // translate the output start-end notation to range
   NSRange linkRange = NSMakeRange(start, end - start);
+  if (![self acceptsReplacementText:text range:linkRange])
+    return;
   if ([StyleUtils handleStyleBlocksAndConflicts:[LinkStyle getType]
                                           range:linkRange
                                         forHost:self]) {
@@ -1719,6 +1751,19 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   NSRange rangeToUse = activeMentionRange != nullptr
                            ? [activeMentionRange rangeValue]
                            : self.textView.selectedRange;
+
+  NSString *currentText = self.textView.textStorage.string;
+  if (NSMaxRange(rangeToUse) > currentText.length)
+    return;
+  BOOL hasTrailingSpace =
+      NSMaxRange(rangeToUse) < currentText.length &&
+      [[NSCharacterSet whitespaceCharacterSet]
+          characterIsMember:[currentText
+                                characterAtIndex:NSMaxRange(rangeToUse)]];
+  NSString *replacement =
+      hasTrailingSpace ? text : [text stringByAppendingString:@" "];
+  if (![self acceptsReplacementText:replacement range:rangeToUse])
+    return;
 
   if ([StyleUtils handleStyleBlocksAndConflicts:[MentionStyle getType]
                                           range:rangeToUse
@@ -2062,16 +2107,6 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 - (bool)textView:(UITextView *)textView
     shouldChangeTextInRange:(NSRange)range
             replacementText:(NSString *)text {
-  // Capture the attributes at range.location that are being replaced
-  // (autocorrect / predictive) so didProcessEditing: can re-stamp them onto the
-  // replacement. Only capture for genuine replacements (text.length > 0), not
-  // for deletions/backspace (text.length == 0).
-  if (range.length > 0 && text.length > 0) {
-    _capturedAttributesBeforeChange =
-        [textView.textStorage attributesAtIndex:range.location
-                                 effectiveRange:NULL];
-  }
-
   // Check if the user pressed "Enter"
   if ([text isEqualToString:@"\n"]) {
     const bool shouldSubmit = [self textInputShouldSubmitOnReturn];
@@ -2088,6 +2123,19 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
     if (shouldSubmit || shouldReturn) {
       return NO;
     }
+  }
+
+  if (![self acceptsReplacementText:text range:range])
+    return NO;
+
+  // Capture the attributes at range.location that are being replaced
+  // (autocorrect / predictive) so didProcessEditing: can re-stamp them onto the
+  // replacement. Only capture for genuine replacements (text.length > 0), not
+  // for deletions/backspace (text.length == 0).
+  if (range.length > 0 && text.length > 0) {
+    _capturedAttributesBeforeChange =
+        [textView.textStorage attributesAtIndex:range.location
+                                 effectiveRange:NULL];
   }
 
   [self handleKeyPressInRange:text range:range];
@@ -2361,6 +2409,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   [super prepareForRecycle];
   [self invalidatePendingPaste];
   _processPaste = NO;
+  _maxPlainTextLength = -1;
   _hasObservedSelection = NO;
   _hasCaretGeometry = NO;
 }

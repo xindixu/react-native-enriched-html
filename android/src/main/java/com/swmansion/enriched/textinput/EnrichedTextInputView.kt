@@ -11,6 +11,7 @@ import android.graphics.Rect
 import android.graphics.text.LineBreaker
 import android.os.Build
 import android.text.Editable
+import android.text.InputFilter
 import android.text.InputType
 import android.text.Spannable
 import android.text.SpannableString
@@ -51,6 +52,7 @@ import com.swmansion.enriched.textinput.events.OnCaretChangeEvent
 import com.swmansion.enriched.textinput.events.OnContextMenuItemPressEvent
 import com.swmansion.enriched.textinput.events.OnInputBlurEvent
 import com.swmansion.enriched.textinput.events.OnInputFocusEvent
+import com.swmansion.enriched.textinput.events.OnMaxLengthExceededEvent
 import com.swmansion.enriched.textinput.events.OnPasteCompleteEvent
 import com.swmansion.enriched.textinput.events.OnPasteEvent
 import com.swmansion.enriched.textinput.events.OnRequestHtmlResultEvent
@@ -101,6 +103,7 @@ private data class RichTextSnapshot(
 class EnrichedTextInputView :
   AppCompatEditText,
   TextView.OnEditorActionListener {
+  var maxPlainTextLength: Int = -1
   private var lastCaretGeometry: CaretGeometry? = null
 
   var stateWrapper: StateWrapper? = null
@@ -239,6 +242,14 @@ class EnrichedTextInputView :
 
   private fun prepareComponent() {
     controlledPasteState = ControlledPasteState()
+    filters = filters +
+      InputFilter { source, start, end, dest, dstart, dend ->
+        if (isDuringTransaction || acceptsReplacement(dest, dstart, dend, source.subSequence(start, end))) {
+          null
+        } else {
+          dest.subSequence(dstart, dend)
+        }
+      }
     isSingleLine = false
     isHorizontalScrollBarEnabled = false
     isVerticalScrollBarEnabled = true
@@ -497,6 +508,20 @@ class EnrichedTextInputView :
     }
   }
 
+  internal fun acceptsReplacement(
+    current: CharSequence,
+    start: Int,
+    end: Int,
+    replacement: CharSequence,
+  ): Boolean {
+    if (acceptsPlainTextReplacement(current, start, end, replacement, maxPlainTextLength)) return true
+    val reactContext = context as ReactContext
+    UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)?.dispatchEvent(
+      OnMaxLengthExceededEvent(UIManagerHelper.getSurfaceId(reactContext), id, maxPlainTextLength, experimentalSynchronousEvents),
+    )
+    return false
+  }
+
   fun handleTextPaste(clip: ClipData) {
     if (requestControlledPaste(clip)) return
 
@@ -526,6 +551,7 @@ class EnrichedTextInputView :
       }
 
     val finalText = currentText.mergeSpannables(start, end, pastedSpannable, htmlStyle)
+    if (!acceptsReplacement(currentText, 0, currentText.length, finalText)) return
     setValue(finalText, false)
 
     // replacement-safe: oldLength - removed + inserted
@@ -613,6 +639,7 @@ class EnrichedTextInputView :
     val replacedText = editable.subSequence(pending.start, pending.end).toString()
     val beforeSnapshot = captureRichTextSnapshot(editable)
     val finalText = editable.mergeSpannables(pending.start, pending.end, pastedSpannable, htmlStyle)
+    if (!acceptsReplacement(editable, 0, editable.length, finalText)) return false
     val insertedLength = finalText.length - (editable.length - (pending.end - pending.start))
     val pasteEnd = (pending.start + insertedLength).coerceIn(0, finalText.length)
     val replacement = finalText.subSequence(pending.start, pasteEnd)

@@ -222,6 +222,10 @@ class EnrichedTextInputViewEventEmitter : public ViewEventEmitter {
       std::vector<OnPasteImagesImages> images;
     };
 
+  struct OnMaxLengthExceeded {
+      int maxLength;
+    };
+
   struct OnPaste {
       std::string requestId;
     std::string html;
@@ -406,6 +410,8 @@ class EnrichedTextInputViewEventEmitter : public ViewEventEmitter {
   void onInputKeyPress(OnInputKeyPress value) const;
 
   void onPasteImages(OnPasteImages value) const;
+
+  void onMaxLengthExceeded(OnMaxLengthExceeded value) const;
 
   void onPaste(OnPaste value) const;
 

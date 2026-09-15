@@ -34,6 +34,7 @@ public interface EnrichedTextInputViewManagerInterface<T extends View> extends V
   void setReturnKeyLabel(T view, @Nullable String value);
   void setSubmitBehavior(T view, @Nullable String value);
   void setAllowFontScaling(T view, boolean value);
+  void setMaxPlainTextLength(T view, int value);
   void setProcessPaste(T view, boolean value);
   void setColor(T view, @Nullable Integer value);
   void setFontSize(T view, float value);

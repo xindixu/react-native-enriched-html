@@ -376,6 +376,10 @@ export interface NativeProps extends ViewProps {
     onRequestHtmlResult?: DirectEventHandler<OnRequestHtmlResultEvent>;
     onInputKeyPress?: DirectEventHandler<OnKeyPressEvent>;
     onPasteImages?: DirectEventHandler<OnPasteImagesEvent>;
+    maxPlainTextLength?: WithDefault<Int32, -1>;
+    onMaxLengthExceeded?: DirectEventHandler<Readonly<{
+        maxLength: Int32;
+    }>>;
     processPaste?: WithDefault<boolean, false>;
     onPaste?: DirectEventHandler<OnPasteEvent>;
     onPasteComplete?: DirectEventHandler<OnPasteCompleteEvent>;

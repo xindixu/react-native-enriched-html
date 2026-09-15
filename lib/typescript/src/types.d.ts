@@ -650,6 +650,14 @@ export interface EnrichedTextInputProps extends Omit<ViewProps, 'children'> {
      * invalidate the captured request. Images keep using onPasteImages.
      */
     onPaste?: (e: NativeSyntheticEvent<OnPasteEvent>) => void;
+    /** Maximum plain-text UTF-16 length for user edits; unset or negative is unlimited.
+     * Hydration through defaultValue/setValue is exempt. Oversized drafts may shrink.
+     */
+    maxPlainTextLength?: number;
+    /** Called when an insertion or whole paste is rejected by the length limit. */
+    onMaxLengthExceeded?: (e: NativeSyntheticEvent<{
+        maxLength: number;
+    }>) => void;
     /**
      * Additional items to inject into the native text-selection context menu
      * (the popover that appears when the user long-presses selected text).

@@ -74,6 +74,8 @@ export const EnrichedTextInput = ({
   onKeyPress,
   onSubmitEditing,
   onPaste,
+  maxPlainTextLength = -1,
+  onMaxLengthExceeded,
   returnKeyType,
   returnKeyLabel,
   submitBehavior,
@@ -375,6 +377,8 @@ export const EnrichedTextInput = ({
       onRequestHtmlResult={handleRequestHtmlResult}
       processPaste={onPaste !== undefined}
       onPaste={onPaste}
+      maxPlainTextLength={maxPlainTextLength}
+      onMaxLengthExceeded={onMaxLengthExceeded}
       onPasteComplete={({ nativeEvent: { requestId, applied } }) => {
         const resolve = pendingPastes.current.get(requestId);
         pendingPastes.current.delete(requestId);

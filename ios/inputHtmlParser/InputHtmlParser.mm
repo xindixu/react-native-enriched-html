@@ -49,13 +49,16 @@
   }
 }
 
-- (void)replaceFromHtml:(NSString *_Nonnull)html range:(NSRange)range {
+- (BOOL)replaceFromHtml:(NSString *_Nonnull)html range:(NSRange)range {
   @try {
     NSArray *processingResult =
         [HtmlParser getTextAndStylesFromHtml:html config:_input.config];
     NSString *plainText = (NSString *)processingResult[0];
     NSArray *stylesInfo = (NSArray *)processingResult[1];
     NSArray *alignments = (NSArray *)processingResult[2];
+
+    if (![_input acceptsReplacementText:plainText range:range])
+      return NO;
 
     // we can use ready replace util
     [TextInsertionUtils replaceText:plainText
@@ -73,21 +76,28 @@
     RCTLogWarn(@"[EnrichedTextInput]: Failed to parse HTML: (%@), falling back "
                @"to raw input.",
                exception.reason);
+    if (![_input acceptsReplacementText:html range:range])
+      return NO;
     [TextInsertionUtils replaceText:html
                                  at:range
                additionalAttributes:nil
                                host:_input
                       withSelection:YES];
   }
+  return YES;
 }
 
-- (void)insertFromHtml:(NSString *_Nonnull)html location:(NSInteger)location {
+- (BOOL)insertFromHtml:(NSString *_Nonnull)html location:(NSInteger)location {
   @try {
     NSArray *processingResult =
         [HtmlParser getTextAndStylesFromHtml:html config:_input.config];
     NSString *plainText = (NSString *)processingResult[0];
     NSArray *stylesInfo = (NSArray *)processingResult[1];
     NSArray *alignments = (NSArray *)processingResult[2];
+
+    if (![_input acceptsReplacementText:plainText
+                                  range:NSMakeRange(location, 0)])
+      return NO;
 
     // same here, insertion utils got our back
     [TextInsertionUtils insertText:plainText
@@ -105,12 +115,15 @@
     RCTLogWarn(@"[EnrichedTextInput]: Failed to parse HTML: (%@), falling back "
                @"to raw input.",
                exception.reason);
+    if (![_input acceptsReplacementText:html range:NSMakeRange(location, 0)])
+      return NO;
     [TextInsertionUtils insertText:html
                                 at:location
               additionalAttributes:nil
                               host:_input
                      withSelection:YES];
   }
+  return YES;
 }
 
 - (void)applyProcessedStyles:(NSArray *)processedStyles

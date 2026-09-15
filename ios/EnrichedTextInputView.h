@@ -45,6 +45,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)emitOnMentionEvent:(NSString *)indicator text:(nullable NSString *)text;
 - (void)emitOnPasteImagesEvent:(NSArray<NSDictionary *> *)images;
 - (BOOL)shouldProcessPaste;
+- (BOOL)acceptsReplacementText:(NSString *)text range:(NSRange)range;
 - (void)beginControlledPasteWithHTML:(NSString *)html
                            plainText:(NSString *)plainText
                                range:(NSRange)range;
