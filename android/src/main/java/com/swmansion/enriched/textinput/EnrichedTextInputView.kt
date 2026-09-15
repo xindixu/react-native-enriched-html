@@ -471,9 +471,7 @@ class EnrichedTextInputView :
   fun handleTextPaste(clip: ClipData) {
     if (requestControlledPaste(clip)) return
 
-    for (index in 0 until clip.itemCount) {
-      handleTextPaste(clip.getItemAt(index))
-    }
+    if (clip.itemCount > 0) handleTextPaste(clip.getItemAt(0))
   }
 
   private fun handleTextPaste(item: ClipData.Item) {
