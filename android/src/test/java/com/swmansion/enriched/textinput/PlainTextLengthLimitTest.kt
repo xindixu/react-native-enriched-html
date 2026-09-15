@@ -28,6 +28,18 @@ class PlainTextLengthLimitTest {
   }
 
   @Test
+  fun `link labels respect insertion replacement and non increasing edits`() {
+    assertFalse(acceptsPlainTextReplacement("hello", 5, 5, "link", 5))
+    assertFalse(acceptsPlainTextReplacement("hello", 0, 5, "longer", 5))
+    assertTrue(acceptsPlainTextReplacement("hello", 0, 5, "world", 5))
+    assertTrue(acceptsPlainTextReplacement("hello", 0, 5, "hello", 3))
+    assertTrue(acceptsPlainTextReplacement("hello", 0, 5, "hi", 3))
+    assertTrue(acceptsPlainTextReplacement("hi", 2, 2, "link", 6))
+    assertFalse(acceptsPlainTextReplacement("hi", 2, 2, "😀", 3))
+    assertTrue(acceptsPlainTextReplacement("hi", 2, 2, "😀", 4))
+  }
+
+  @Test
   fun `invisible input consumes capacity`() {
     assertFalse(acceptsPlainTextReplacement("\u200bhi", 3, 3, "!", 3))
     assertFalse(acceptsPlainTextReplacement("hi", 2, 2, "\u200b", 2))

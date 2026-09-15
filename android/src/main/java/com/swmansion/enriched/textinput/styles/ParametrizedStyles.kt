@@ -49,9 +49,10 @@ class ParametrizedStyles(
     text: String,
     url: String,
   ) {
-    isSettingLinkSpan = true
-
     val spannable = view.text as SpannableStringBuilder
+    if (!view.acceptsReplacement(spannable, start, end, text)) return
+
+    isSettingLinkSpan = true
     val spans = spannable.getSpans(start, end, EnrichedInputLinkSpan::class.java)
     for (span in spans) {
       spannable.removeSpan(span)
