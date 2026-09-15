@@ -223,3 +223,144 @@ it.each(['items', 'files'])(
     expect(editor.getText()).toBe('hello world');
   }
 );
+
+it.each([
+  ['exact boundary', '<p>12345</p>', true, 'hello 12345'],
+  ['one over', '<p>123456</p>', false, 'hello world'],
+  ['UTF-16 emoji', '<p>😀😀😀</p>', false, 'hello world'],
+  ['combining marks', '<p>ééé</p>', false, 'hello world'],
+  ['block separators', '<p>123</p><p>45</p>', false, 'hello world'],
+] as const)(
+  'limits controlled paste: %s',
+  async (_, html, allowed, expected) => {
+    const exceeded = jest.fn();
+    render({ maxPlainTextLength: 11, onMaxLengthExceeded: exceeded });
+    paste();
+    const beforeSelection = editor.state.selection.toJSON();
+    expect(await complete(requests[0]!.requestId, html)).toBe(allowed);
+    expect(editor.getText()).toBe(expected);
+    if (!allowed) {
+      expect(editor.state.selection.toJSON()).toEqual(beforeSelection);
+      expect(exceeded).toHaveBeenCalledTimes(1);
+      expect(exceeded.mock.calls[0]![0].nativeEvent).toEqual({ maxLength: 11 });
+    }
+  }
+);
+
+it('rejects ordinary paste entirely, including selected text', () => {
+  render({ onPaste: undefined, maxPlainTextLength: 11 });
+  const selection = editor.state.selection.toJSON();
+  paste('<b>123456</b>', '123456');
+  expect(editor.getText()).toBe('hello world');
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+});
+
+it('rejects typing before committing an editor transaction', () => {
+  render({ maxPlainTextLength: 11 });
+  act(() => editor.commands.setTextSelection(12));
+  const doc = editor.state.doc;
+  act(() => editor.commands.insertContent('!'));
+  expect(editor.state.doc).toBe(doc);
+});
+
+it('keeps oversized hydration, formatting, and deletion available', () => {
+  render({ maxPlainTextLength: 3 });
+  expect(editor.getText()).toBe('hello world');
+  act(() => ref.current!.setValue('<p>oversized</p>'));
+  expect(editor.getText()).toBe('oversized');
+  act(() => {
+    editor.commands.selectAll();
+    editor.commands.toggleBold();
+  });
+  expect(editor.getHTML()).toContain('<b>oversized</b>');
+  act(() => editor.commands.deleteRange({ from: 1, to: 2 }));
+  expect(editor.getText()).toBe('versized');
+  act(() => editor.commands.setTextSelection(9));
+  act(() => editor.commands.insertContent('extra'));
+  expect(editor.getText()).toBe('versized');
+});
+
+it.each([undefined, -1])(
+  'keeps the default unlimited (%s)',
+  (maxPlainTextLength) => {
+    render({ onPaste: undefined, maxPlainTextLength });
+    paste('<p>unlimited text</p>', 'unlimited text');
+    expect(editor.getText()).toBe('hello unlimited text');
+  }
+);
+
+it('prevents cancelable text input before the browser changes DOM', () => {
+  render({ maxPlainTextLength: 11 });
+  act(() => editor.commands.setTextSelection(12));
+  const event = new InputEvent('beforeinput', {
+    bubbles: true,
+    cancelable: true,
+    inputType: 'insertText',
+    data: '!',
+  });
+  act(() => editor.view.dom.dispatchEvent(event));
+  expect(event.defaultPrevented).toBe(true);
+  expect(editor.getText()).toBe('hello world');
+});
+
+it('repairs noncancelable composition DOM without committing oversized text', async () => {
+  render({ maxPlainTextLength: 11 });
+  act(() => editor.commands.setTextSelection(12));
+  await act(async () => {
+    editor.view.dom.querySelector('p')!.firstChild!.textContent =
+      'hello world界';
+    editor.view.dom.dispatchEvent(
+      new InputEvent('input', {
+        bubbles: true,
+        inputType: 'insertCompositionText',
+        data: '界',
+        isComposing: true,
+      })
+    );
+    editor.view.dom.dispatchEvent(
+      new CompositionEvent('compositionend', { bubbles: true, data: '界' })
+    );
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+  expect(editor.getText()).toBe('hello world');
+  expect(editor.view.dom.textContent).toBe('hello world');
+});
+
+it('accepts 64000 units and rejects the next unit without a change event', () => {
+  const changed = jest.fn();
+  render({ maxPlainTextLength: 64000, onChangeText: changed });
+  act(() => {
+    ref.current!.setValue('<p>' + 'a'.repeat(63999) + '</p>');
+    editor.commands.setTextSelection(64000);
+    editor.commands.insertContent('a');
+  });
+  expect(editor.getText()).toHaveLength(64000);
+  changed.mockClear();
+  act(() => editor.commands.insertContent('a'));
+  expect(editor.getText()).toHaveLength(64000);
+  expect(changed).not.toHaveBeenCalled();
+});
+
+it('counts zero-width input for paste and repeated typing', async () => {
+  render({ maxPlainTextLength: 11 });
+  paste();
+  expect(
+    await complete(requests[0]!.requestId, '<p>' + '\u200b'.repeat(12) + '</p>')
+  ).toBe(false);
+  expect(editor.getText()).toBe('hello world');
+  act(() => editor.commands.setTextSelection(12));
+  for (let index = 0; index < 3; index++) {
+    act(() => editor.commands.insertContent('\u200b'));
+  }
+  expect(editor.getText()).toBe('hello world');
+});
+
+it('rejects a newline at capacity and allows it to replace selected text', () => {
+  render({ maxPlainTextLength: 11 });
+  act(() => editor.commands.setTextSelection(12));
+  act(() => editor.commands.splitBlock());
+  expect(editor.getHTML()).toBe('<p>hello world</p>');
+  act(() => editor.commands.setTextSelection({ from: 11, to: 12 }));
+  act(() => editor.commands.splitBlock());
+  expect(editor.getHTML()).toBe('<p>hello worl</p><p></p>');
+});

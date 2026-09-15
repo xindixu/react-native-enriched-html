@@ -275,6 +275,15 @@ imagesObject.setProperty(runtime, "height", imagesValue.height);
 }
 
 
+void EnrichedTextInputViewEventEmitter::onMaxLengthExceeded(OnMaxLengthExceeded event) const {
+  dispatchEvent("maxLengthExceeded", [event=std::move(event)](jsi::Runtime &runtime) {
+    auto payload = jsi::Object(runtime);
+    payload.setProperty(runtime, "maxLength", event.maxLength);
+    return payload;
+  });
+}
+
+
 void EnrichedTextInputViewEventEmitter::onPaste(OnPaste event) const {
   dispatchEvent("paste", [event=std::move(event)](jsi::Runtime &runtime) {
     auto payload = jsi::Object(runtime);

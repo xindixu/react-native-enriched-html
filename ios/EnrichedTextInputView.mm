@@ -66,6 +66,7 @@ using namespace facebook::react;
   NSDictionary<NSAttributedStringKey, id> *_capturedAttributesBeforeChange;
   NSString *_recentlyEmittedAlignment;
   BOOL _processPaste;
+  NSInteger _maxPlainTextLength;
   NSUInteger _mutationGeneration;
   NSString *_pendingPasteRequestID;
   NSRange _pendingPasteRange;
@@ -150,6 +151,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   _emitFocusBlur = YES;
   _emitTextChange = NO;
   _processPaste = NO;
+  _maxPlainTextLength = -1;
   _mutationGeneration = 0;
   _hasObservedSelection = NO;
   dotReplacementRange = nullptr;
@@ -704,6 +706,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
     }
   }
 
+  _maxPlainTextLength = newViewProps.maxPlainTextLength;
   if (newViewProps.processPaste != oldViewProps.processPaste) {
     _processPaste = newViewProps.processPaste;
     if (!_processPaste) {
@@ -1480,6 +1483,23 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   }
 }
 
+- (BOOL)acceptsReplacementText:(NSString *)text range:(NSRange)range {
+  if (_maxPlainTextLength < 0)
+    return YES;
+  NSUInteger currentLength = textView.textStorage.length;
+  if (NSMaxRange(range) > currentLength)
+    return NO;
+  NSUInteger resultLength = currentLength - range.length + text.length;
+  if (resultLength <= (NSUInteger)_maxPlainTextLength ||
+      resultLength <= currentLength)
+    return YES;
+  auto emitter = [self getEventEmitter];
+  if (emitter != nullptr) {
+    emitter->onMaxLengthExceeded({.maxLength = (int)_maxPlainTextLength});
+  }
+  return NO;
+}
+
 - (void)completePaste:(NSString *)requestID html:(NSString *)html {
   BOOL matchesPending = [_pendingPasteRequestID isEqualToString:requestID];
   BOOL canApply = _processPaste && textView.editable &&
@@ -1500,6 +1520,16 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
                                 ? [parser initiallyProcessHtml:htmlDocument]
                                 : nil;
   BOOL applied = processedHTML != nil;
+  if (applied && _maxPlainTextLength >= 0) {
+    NSString *replacement;
+    @try {
+      replacement = [HtmlParser getTextAndStylesFromHtml:processedHTML
+                                                  config:config][0];
+    } @catch (NSException *exception) {
+      replacement = processedHTML;
+    }
+    applied = [self acceptsReplacementText:replacement range:range];
+  }
   if (applied) {
     NSUndoManager *undoManager = textView.undoManager;
     NSAttributedString *previousText = [textView.textStorage copy];
@@ -2086,6 +2116,8 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
     }
   }
 
+  if (![self acceptsReplacementText:text range:range])
+    return NO;
   [self handleKeyPressInRange:text range:range];
 
   CheckboxListStyle *cbLStyle =
@@ -2326,6 +2358,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   [super prepareForRecycle];
   [self invalidatePendingPaste];
   _processPaste = NO;
+  _maxPlainTextLength = -1;
   _hasObservedSelection = NO;
 }
 

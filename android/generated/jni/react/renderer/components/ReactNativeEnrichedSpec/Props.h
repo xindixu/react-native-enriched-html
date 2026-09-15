@@ -881,6 +881,7 @@ class EnrichedTextInputViewProps final : public ViewProps {
   std::string returnKeyLabel{};
   std::string submitBehavior{};
   bool allowFontScaling{false};
+  int maxPlainTextLength{-1};
   bool processPaste{false};
   SharedColor color{};
   Float fontSize{0.0};

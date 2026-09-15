@@ -80,6 +80,9 @@ public class EnrichedTextInputViewManagerDelegate<T extends View, U extends Base
       case "allowFontScaling":
         mViewManager.setAllowFontScaling(view, value == null ? false : (boolean) value);
         break;
+      case "maxPlainTextLength":
+        mViewManager.setMaxPlainTextLength(view, value == null ? -1 : ((Double) value).intValue());
+        break;
       case "processPaste":
         mViewManager.setProcessPaste(view, value == null ? false : (boolean) value);
         break;

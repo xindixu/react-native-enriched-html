@@ -8,6 +8,8 @@ import {
 } from 'react';
 import './EnrichedText.css';
 import { DOMParser, type Node } from '@tiptap/pm/model';
+import { Extension } from '@tiptap/core';
+import { Plugin } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
 import type {
   EnrichedTextInputInstance,
@@ -99,6 +101,19 @@ function runFocused(
   apply(editor.chain().focus()).run();
 }
 
+function plainTextLength(doc: Node): number {
+  let length = 0;
+  let firstBlock = true;
+  doc.descendants((node) => {
+    if (node.isBlock && (node.isLeaf || node.isTextblock)) {
+      if (!firstBlock) length++;
+      firstBlock = false;
+    }
+    length += node.isText ? node.text!.length : node.isLeaf ? 1 : 0;
+  });
+  return length;
+}
+
 export const EnrichedTextInput = ({
   ref,
   defaultValue,
@@ -125,6 +140,8 @@ export const EnrichedTextInput = ({
   submitBehavior,
   onPasteImages,
   onPaste,
+  maxPlainTextLength = -1,
+  onMaxLengthExceeded,
   onMentionDetected,
   onStartMention,
   onChangeMention,
@@ -163,6 +180,20 @@ export const EnrichedTextInput = ({
   const htmlStyleRef = useStableRef(resolvedHtmlStyle);
   const onPasteImagesRef = useStableRef(onPasteImages);
   const onPasteRef = useStableRef(onPaste);
+  const lengthLimit = useStableRef({ maxPlainTextLength, onMaxLengthExceeded });
+  const acceptsDocument = useCallback(
+    (doc: Node, previous: Node): boolean => {
+      const { maxPlainTextLength: maxLength, onMaxLengthExceeded: exceeded } =
+        lengthLimit.current;
+      if (maxLength < 0) return true;
+      const length = plainTextLength(doc);
+      if (length <= maxLength || length <= plainTextLength(previous))
+        return true;
+      exceeded?.(adaptWebToNativeEvent(null, { maxLength }));
+      return false;
+    },
+    [lengthLimit]
+  );
   const nextPasteId = useRef(0);
   const pendingPaste = useRef<{
     requestId: string;
@@ -216,6 +247,17 @@ export const EnrichedTextInput = ({
 
   const extensions = useMemo(
     () => [
+      Extension.create({
+        name: 'plainTextLengthLimit',
+        addProseMirrorPlugins: () => [
+          new Plugin({
+            filterTransaction: (tr, state) =>
+              !tr.docChanged ||
+              tr.getMeta('lengthLimitHydration') ||
+              acceptsDocument(tr.doc, state.doc),
+          }),
+        ],
+      }),
       Document,
       Paragraph,
       Text,
@@ -265,7 +307,13 @@ export const EnrichedTextInput = ({
         showOnlyWhenEditable: true,
       }),
     ],
-    [placeholder, htmlStyleRef, mentionIndicatorsRef, textShortcutsRef]
+    [
+      placeholder,
+      htmlStyleRef,
+      mentionIndicatorsRef,
+      textShortcutsRef,
+      acceptsDocument,
+    ]
   );
 
   const editor = useEditor(
@@ -275,7 +323,11 @@ export const EnrichedTextInput = ({
       autofocus: autoFocus,
       onCreate: ({ editor: _editor }) => {
         // Setting initial content in this way ensures all custom plugins are run and applied
-        _editor.commands.setContent(tiptapContent ?? '');
+        _editor
+          .chain()
+          .setMeta('lengthLimitHydration', true)
+          .setContent(tiptapContent ?? '')
+          .run();
       },
       onFocus: ({ event }) => {
         onFocus?.(adaptWebToNativeEvent(event, { target: -1 }));
@@ -307,6 +359,28 @@ export const EnrichedTextInput = ({
       },
       editorProps: {
         handleKeyDown: (view, event) => handleKeyDown(view.state.doc, event),
+        handleDOMEvents: {
+          beforeinput: (view, event) => {
+            if (
+              lengthLimit.current.maxPlainTextLength < 0 ||
+              !event.cancelable ||
+              !event.inputType.startsWith('insert') ||
+              event.data == null
+            )
+              return false;
+            const target = event.getTargetRanges?.()[0];
+            const from = target
+              ? view.posAtDOM(target.startContainer, target.startOffset)
+              : view.state.selection.from;
+            const to = target
+              ? view.posAtDOM(target.endContainer, target.endOffset)
+              : view.state.selection.to;
+            const proposed = view.state.tr.insertText(event.data, from, to);
+            if (acceptsDocument(proposed.doc, view.state.doc)) return false;
+            event.preventDefault();
+            return true;
+          },
+        },
         handlePaste: (view, event, slice) => {
           pendingPaste.current = null;
           if (
@@ -400,13 +474,17 @@ export const EnrichedTextInput = ({
       focus: () => editor.commands.focus(),
       blur: () => editor.commands.blur(),
       setValue: (value: string) =>
-        editor.commands.setContent(
-          prepareHtmlForTiptap(
-            value,
-            useHtmlNormalizerRef.current,
-            sanitizationConfigRef.current
+        editor
+          .chain()
+          .setMeta('lengthLimitHydration', true)
+          .setContent(
+            prepareHtmlForTiptap(
+              value,
+              useHtmlNormalizerRef.current,
+              sanitizationConfigRef.current
+            )
           )
-        ),
+          .run(),
       setSelection: (start, end) => {
         const doc = editor.state.doc;
         runFocused(editor, (c) =>
@@ -443,6 +521,7 @@ export const EnrichedTextInput = ({
         const transaction = closeHistory(editor.state.tr).replaceSelection(
           slice
         );
+        if (!acceptsDocument(transaction.doc, editor.state.doc)) return false;
         editor.view.dispatch(transaction.scrollIntoView());
         editor.view.dispatch(closeHistory(editor.state.tr));
         return true;
@@ -508,6 +587,7 @@ export const EnrichedTextInput = ({
     }),
     [
       editor,
+      acceptsDocument,
       mentionIndicatorsRef,
       useHtmlNormalizerRef,
       sanitizationConfigRef,

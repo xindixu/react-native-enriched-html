@@ -57,6 +57,9 @@
     NSArray *stylesInfo = (NSArray *)processingResult[1];
     NSArray *alignments = (NSArray *)processingResult[2];
 
+    if (![_input acceptsReplacementText:plainText range:range])
+      return;
+
     // we can use ready replace util
     [TextInsertionUtils replaceText:plainText
                                  at:range
@@ -73,6 +76,8 @@
     RCTLogWarn(@"[EnrichedTextInput]: Failed to parse HTML: (%@), falling back "
                @"to raw input.",
                exception.reason);
+    if (![_input acceptsReplacementText:html range:range])
+      return;
     [TextInsertionUtils replaceText:html
                                  at:range
                additionalAttributes:nil
@@ -88,6 +93,10 @@
     NSString *plainText = (NSString *)processingResult[0];
     NSArray *stylesInfo = (NSArray *)processingResult[1];
     NSArray *alignments = (NSArray *)processingResult[2];
+
+    if (![_input acceptsReplacementText:plainText
+                                  range:NSMakeRange(location, 0)])
+      return;
 
     // same here, insertion utils got our back
     [TextInsertionUtils insertText:plainText
@@ -105,6 +114,8 @@
     RCTLogWarn(@"[EnrichedTextInput]: Failed to parse HTML: (%@), falling back "
                @"to raw input.",
                exception.reason);
+    if (![_input acceptsReplacementText:html range:NSMakeRange(location, 0)])
+      return;
     [TextInsertionUtils insertText:html
                                 at:location
               additionalAttributes:nil

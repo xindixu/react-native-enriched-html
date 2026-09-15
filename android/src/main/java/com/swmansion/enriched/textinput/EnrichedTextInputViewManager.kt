@@ -24,11 +24,12 @@ import com.swmansion.enriched.textinput.events.OnInputBlurEvent
 import com.swmansion.enriched.textinput.events.OnInputFocusEvent
 import com.swmansion.enriched.textinput.events.OnInputKeyPressEvent
 import com.swmansion.enriched.textinput.events.OnLinkDetectedEvent
+import com.swmansion.enriched.textinput.events.OnMaxLengthExceededEvent
 import com.swmansion.enriched.textinput.events.OnMentionDetectedEvent
 import com.swmansion.enriched.textinput.events.OnMentionEvent
-import com.swmansion.enriched.textinput.events.OnPasteImagesEvent
 import com.swmansion.enriched.textinput.events.OnPasteCompleteEvent
 import com.swmansion.enriched.textinput.events.OnPasteEvent
+import com.swmansion.enriched.textinput.events.OnPasteImagesEvent
 import com.swmansion.enriched.textinput.events.OnRequestHtmlResultEvent
 import com.swmansion.enriched.textinput.events.OnSubmitEditingEvent
 import com.swmansion.enriched.textinput.spans.EnrichedSpans
@@ -77,6 +78,7 @@ class EnrichedTextInputViewManager :
     map.put(OnRequestHtmlResultEvent.EVENT_NAME, mapOf("registrationName" to OnRequestHtmlResultEvent.EVENT_NAME))
     map.put(OnInputKeyPressEvent.EVENT_NAME, mapOf("registrationName" to OnInputKeyPressEvent.EVENT_NAME))
     map.put(OnPasteImagesEvent.EVENT_NAME, mapOf("registrationName" to OnPasteImagesEvent.EVENT_NAME))
+    map.put(OnMaxLengthExceededEvent.EVENT_NAME, mapOf("registrationName" to OnMaxLengthExceededEvent.EVENT_NAME))
     map.put(OnPasteEvent.EVENT_NAME, mapOf("registrationName" to OnPasteEvent.EVENT_NAME))
     map.put(OnPasteCompleteEvent.EVENT_NAME, mapOf("registrationName" to OnPasteCompleteEvent.EVENT_NAME))
     map.put(OnContextMenuItemPressEvent.EVENT_NAME, mapOf("registrationName" to OnContextMenuItemPressEvent.EVENT_NAME))
@@ -164,6 +166,14 @@ class EnrichedTextInputViewManager :
   ) {
     if (!editable) view?.invalidatePendingPaste()
     view?.isEnabled = editable
+  }
+
+  @ReactProp(name = "maxPlainTextLength", defaultInt = -1)
+  override fun setMaxPlainTextLength(
+    view: EnrichedTextInputView?,
+    value: Int,
+  ) {
+    view?.maxPlainTextLength = value
   }
 
   @ReactProp(name = "processPaste", defaultBoolean = false)

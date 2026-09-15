@@ -38,6 +38,7 @@ EnrichedTextInputViewProps::EnrichedTextInputViewProps(
     returnKeyLabel(convertRawProp(context, rawProps, "returnKeyLabel", sourceProps.returnKeyLabel, {})),
     submitBehavior(convertRawProp(context, rawProps, "submitBehavior", sourceProps.submitBehavior, {})),
     allowFontScaling(convertRawProp(context, rawProps, "allowFontScaling", sourceProps.allowFontScaling, {false})),
+    maxPlainTextLength(convertRawProp(context, rawProps, "maxPlainTextLength", sourceProps.maxPlainTextLength, {-1})),
     processPaste(convertRawProp(context, rawProps, "processPaste", sourceProps.processPaste, {false})),
     color(convertRawProp(context, rawProps, "color", sourceProps.color, {})),
     fontSize(convertRawProp(context, rawProps, "fontSize", sourceProps.fontSize, {0.0})),
@@ -136,6 +137,10 @@ folly::dynamic EnrichedTextInputViewProps::getDiffProps(
 
   if (allowFontScaling != oldProps->allowFontScaling) {
     result["allowFontScaling"] = allowFontScaling;
+  }
+
+  if (maxPlainTextLength != oldProps->maxPlainTextLength) {
+    result["maxPlainTextLength"] = maxPlainTextLength;
   }
 
   if (processPaste != oldProps->processPaste) {

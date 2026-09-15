@@ -13,6 +13,21 @@
 
 @implementation EnrichedInputTextView
 
+- (void)setMarkedText:(NSString *)markedText
+        selectedRange:(NSRange)selectedRange {
+  UITextRange *marked = self.markedTextRange;
+  NSRange range =
+      marked ? NSMakeRange([self offsetFromPosition:self.beginningOfDocument
+                                         toPosition:marked.start],
+                           [self offsetFromPosition:marked.start
+                                         toPosition:marked.end])
+             : self.selectedRange;
+  EnrichedTextInputView *input = (EnrichedTextInputView *)_input;
+  if (input && ![input acceptsReplacementText:markedText ?: @"" range:range])
+    return;
+  [super setMarkedText:markedText selectedRange:selectedRange];
+}
+
 - (void)layoutSubviews {
   [super layoutSubviews];
   // UITextView resets contentSize during its own layout pass (triggered when
@@ -293,7 +308,7 @@
                               range:(NSRange)range
                               input:(EnrichedTextInputView *)input {
   NSString *plainText = [self plainTextInPasteboard:pasteboard];
-  if (!plainText) {
+  if (!plainText || ![input acceptsReplacementText:plainText range:range]) {
     return;
   }
 
@@ -334,7 +349,7 @@
     }
   }
 
-  if (!plainText) {
+  if (!plainText || ![input acceptsReplacementText:plainText range:range]) {
     return nil;
   }
   return plainText;
