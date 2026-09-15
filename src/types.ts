@@ -395,6 +395,17 @@ export interface OnMentionDetected {
   attributes: Record<string, string>;
 }
 
+/** Caret rectangle in input-local points, accounting for internal scrolling.
+ * `visible` is false for a selection or a caret outside the input's bounds.
+ */
+export interface OnCaretChangeEvent {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  visible: boolean;
+}
+
 export interface OnChangeSelectionEvent {
   start: number;
   end: number;
@@ -744,6 +755,7 @@ export interface EnrichedTextInputProps extends Omit<ViewProps, 'children'> {
   onEndMention?: (indicator: string) => void;
 
   /** Called when the text selection range changes. */
+  onCaretChange?: (e: NativeSyntheticEvent<OnCaretChangeEvent>) => void;
   onChangeSelection?: (e: NativeSyntheticEvent<OnChangeSelectionEvent>) => void;
 
   /** Called when a key is pressed while the editor is focused. */

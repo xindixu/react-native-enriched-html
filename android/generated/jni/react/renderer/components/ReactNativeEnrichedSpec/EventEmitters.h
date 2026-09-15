@@ -188,6 +188,14 @@ class EnrichedTextInputViewEventEmitter : public ViewEventEmitter {
     folly::dynamic text;
     };
 
+  struct OnCaretChange {
+      Float x;
+    Float y;
+    Float width;
+    Float height;
+    bool visible;
+    };
+
   struct OnChangeSelection {
       int start;
     int end;
@@ -392,6 +400,8 @@ class EnrichedTextInputViewEventEmitter : public ViewEventEmitter {
   void onMentionDetected(OnMentionDetected value) const;
 
   void onMention(OnMention value) const;
+
+  void onCaretChange(OnCaretChange value) const;
 
   void onChangeSelection(OnChangeSelection value) const;
 

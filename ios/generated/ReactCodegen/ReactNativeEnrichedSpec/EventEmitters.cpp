@@ -224,6 +224,19 @@ payload.setProperty(runtime, "text", jsi::valueFromDynamic(runtime, event.text))
 }
 
 
+void EnrichedTextInputViewEventEmitter::onCaretChange(OnCaretChange event) const {
+  dispatchEvent("caretChange", [event=std::move(event)](jsi::Runtime &runtime) {
+    auto payload = jsi::Object(runtime);
+    payload.setProperty(runtime, "x", event.x);
+payload.setProperty(runtime, "y", event.y);
+payload.setProperty(runtime, "width", event.width);
+payload.setProperty(runtime, "height", event.height);
+payload.setProperty(runtime, "visible", event.visible);
+    return payload;
+  });
+}
+
+
 void EnrichedTextInputViewEventEmitter::onChangeSelection(OnChangeSelection event) const {
   dispatchEvent("changeSelection", [event=std::move(event)](jsi::Runtime &runtime) {
     auto payload = jsi::Object(runtime);

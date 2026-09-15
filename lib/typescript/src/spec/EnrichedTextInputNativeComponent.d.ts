@@ -132,6 +132,16 @@ export interface OnMentionEvent {
     indicator: string;
     text: UnsafeMixed;
 }
+/** Caret rectangle in input-local points, accounting for internal scrolling.
+ * `visible` is false for a selection or a caret outside the input's bounds.
+ */
+export interface OnCaretChangeEvent {
+    x: Float;
+    y: Float;
+    width: Float;
+    height: Float;
+    visible: boolean;
+}
 export interface OnChangeSelectionEvent {
     start: Int32;
     end: Int32;
@@ -361,6 +371,7 @@ export interface NativeProps extends ViewProps {
     onLinkDetected?: DirectEventHandler<OnLinkDetected>;
     onMentionDetected?: DirectEventHandler<OnMentionDetectedInternal>;
     onMention?: DirectEventHandler<OnMentionEvent>;
+    onCaretChange?: DirectEventHandler<OnCaretChangeEvent>;
     onChangeSelection?: DirectEventHandler<OnChangeSelectionEvent>;
     onRequestHtmlResult?: DirectEventHandler<OnRequestHtmlResultEvent>;
     onInputKeyPress?: DirectEventHandler<OnKeyPressEvent>;
