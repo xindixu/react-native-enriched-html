@@ -9,6 +9,9 @@
 
 @interface EnrichedInputTextView ()
 - (NSString *)plainTextInPasteboard:(UIPasteboard *)pasteboard;
+- (BOOL)tryHandlingPlainTextItemsIn:(UIPasteboard *)pasteboard
+                              range:(NSRange)range
+                              input:(EnrichedTextInputView *)input;
 @end
 
 @implementation EnrichedInputTextView
@@ -221,6 +224,7 @@
     }
   }
 
+  BOOL applied = NO;
   if ([pasteboardTypes containsObject:UTTypeHTML.identifier]) {
     // we try processing the html contents
 
@@ -240,24 +244,25 @@
 
     if (initiallyProcessedHtml != nullptr) {
       // valid html, let's apply it
-      currentRange.length > 0
-          ? [typedInput->parser replaceFromHtml:initiallyProcessedHtml
-                                          range:currentRange]
-          : [typedInput->parser insertFromHtml:initiallyProcessedHtml
-                                      location:currentRange.location];
+      applied = currentRange.length > 0
+                    ? [typedInput->parser replaceFromHtml:initiallyProcessedHtml
+                                                    range:currentRange]
+                    : [typedInput->parser insertFromHtml:initiallyProcessedHtml
+                                                location:currentRange.location];
     } else {
       // fall back to plain text, otherwise do nothing
-      [self tryHandlingPlainTextItemsIn:pasteboard
-                                  range:currentRange
-                                  input:typedInput];
+      applied = [self tryHandlingPlainTextItemsIn:pasteboard
+                                            range:currentRange
+                                            input:typedInput];
     }
   } else {
-    [self tryHandlingPlainTextItemsIn:pasteboard
-                                range:currentRange
-                                input:typedInput];
+    applied = [self tryHandlingPlainTextItemsIn:pasteboard
+                                          range:currentRange
+                                          input:typedInput];
   }
 
-  [typedInput anyTextMayHaveBeenModified];
+  if (applied)
+    [typedInput anyTextMayHaveBeenModified];
 }
 
 - (NSDictionary *)detectImageFormat:(NSString *)type {
@@ -304,12 +309,12 @@
   return nil;
 }
 
-- (void)tryHandlingPlainTextItemsIn:(UIPasteboard *)pasteboard
+- (BOOL)tryHandlingPlainTextItemsIn:(UIPasteboard *)pasteboard
                               range:(NSRange)range
                               input:(EnrichedTextInputView *)input {
   NSString *plainText = [self plainTextInPasteboard:pasteboard];
   if (!plainText || ![input acceptsReplacementText:plainText range:range]) {
-    return;
+    return NO;
   }
 
   range.length > 0 ? [TextInsertionUtils replaceText:plainText
@@ -322,6 +327,7 @@
                                additionalAttributes:nullptr
                                                host:input
                                       withSelection:YES];
+  return YES;
 }
 
 - (NSString *)plainTextInPasteboard:(UIPasteboard *)pasteboard {
