@@ -349,7 +349,7 @@
     }
   }
 
-  if (!plainText || ![input acceptsReplacementText:plainText range:range]) {
+  if (!plainText) {
     return nil;
   }
   return plainText;
