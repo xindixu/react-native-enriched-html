@@ -10,6 +10,7 @@ export type {
   OnLinkDetected,
   OnMentionDetected,
   OnChangeSelectionEvent,
+  OnCaretChangeEvent,
   OnKeyPressEvent,
   OnPasteImagesEvent,
   OnPasteEvent,

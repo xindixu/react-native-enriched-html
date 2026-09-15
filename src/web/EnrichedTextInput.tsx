@@ -30,6 +30,7 @@ import Paragraph from '@tiptap/extension-paragraph';
 import Text from '@tiptap/extension-text';
 import History from '@tiptap/extension-history';
 import { Placeholder } from '@tiptap/extensions/placeholder';
+import { useOnCaretChange } from './tiptapWatchers/useOnCaretChange';
 import { useOnChangeHtml } from './tiptapWatchers/useOnChangeHtml';
 import { useOnChangeText } from './tiptapWatchers/useOnChangeText';
 import { useOnChangeState } from './tiptapWatchers/useOnChangeState';
@@ -115,6 +116,7 @@ export const EnrichedTextInput = ({
   style,
   onBlur,
   onChangeSelection,
+  onCaretChange,
   onKeyPress,
   onChangeText,
   onChangeHtml,
@@ -388,6 +390,8 @@ export const EnrichedTextInput = ({
     [mentionCallbacksRef]
   );
 
+  const caretContainer = useRef<HTMLDivElement>(null);
+  useOnCaretChange(editor, caretContainer, onCaretChange);
   useMentionEvents(editor, getMentionCallbacks);
   useOnChangeHtml(editor, () => sanitizationConfigRef.current, onChangeHtml);
   useOnChangeText(editor, onChangeText);
@@ -549,6 +553,7 @@ export const EnrichedTextInput = ({
     <>
       {mentionRulesCSS ? <style>{mentionRulesCSS}</style> : null}
       <EditorContent
+        ref={caretContainer}
         editor={editor}
         className={ENRICHED_TEXT_INPUT_CLASSNAME}
         style={finalStyle}

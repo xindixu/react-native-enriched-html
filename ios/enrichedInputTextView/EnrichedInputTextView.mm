@@ -21,6 +21,7 @@
   EnrichedTextInputView *input = (EnrichedTextInputView *)_input;
   if (input != nil) {
     [input scheduleRelayoutIfNeeded];
+    [input emitCaretChange];
   }
 }
 

@@ -72,6 +72,9 @@ using namespace facebook::react;
   NSUInteger _pendingPasteGeneration;
   NSRange _lastObservedSelection;
   BOOL _hasObservedSelection;
+  BOOL _hasCaretGeometry;
+  CGRect _lastCaretRect;
+  BOOL _lastCaretVisible;
 }
 
 @synthesize blockEmitting = blockEmitting;
@@ -1934,6 +1937,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
     // Re-position attachment image views after the forced full re-layout
     [self layoutAttachments];
+    [self emitCaretChange];
   });
 }
 
@@ -2151,6 +2155,36 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   return YES;
 }
 
+- (void)emitCaretChange {
+  auto emitter = [self getEventEmitter];
+  if (emitter == nullptr || textView == nil)
+    return;
+  UITextRange *selection = textView.selectedTextRange;
+  CGRect rect = CGRectZero;
+  BOOL visible = NO;
+  if (selection != nil && selection.isEmpty) {
+    CGRect caret = [textView caretRectForPosition:selection.end];
+    rect = [textView convertRect:caret toView:self];
+    visible = self.window != nil && rect.size.height > 0 &&
+              CGRectContainsRect(self.bounds, rect);
+  }
+  if (_hasCaretGeometry && CGRectEqualToRect(rect, _lastCaretRect) &&
+      visible == _lastCaretVisible)
+    return;
+  _hasCaretGeometry = YES;
+  _lastCaretRect = rect;
+  _lastCaretVisible = visible;
+  emitter->onCaretChange({.x = static_cast<float>(rect.origin.x),
+                          .y = static_cast<float>(rect.origin.y),
+                          .width = static_cast<float>(rect.size.width),
+                          .height = static_cast<float>(rect.size.height),
+                          .visible = static_cast<bool>(visible)});
+}
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+  [self emitCaretChange];
+}
+
 - (void)textViewDidChangeSelection:(UITextView *)textView {
   if (!_hasObservedSelection ||
       !NSEqualRanges(_lastObservedSelection, textView.selectedRange)) {
@@ -2178,6 +2212,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
   // manage selection changes
   [self manageSelectionBasedChanges];
+  [self emitCaretChange];
 }
 
 // this function isn't called always when some text changes (for example setting
@@ -2327,6 +2362,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   [self invalidatePendingPaste];
   _processPaste = NO;
   _hasObservedSelection = NO;
+  _hasCaretGeometry = NO;
 }
 
 // MARK: - Media attachments delegate
