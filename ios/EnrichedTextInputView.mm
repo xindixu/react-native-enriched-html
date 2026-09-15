@@ -2088,16 +2088,6 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 - (bool)textView:(UITextView *)textView
     shouldChangeTextInRange:(NSRange)range
             replacementText:(NSString *)text {
-  // Capture the attributes at range.location that are being replaced
-  // (autocorrect / predictive) so didProcessEditing: can re-stamp them onto the
-  // replacement. Only capture for genuine replacements (text.length > 0), not
-  // for deletions/backspace (text.length == 0).
-  if (range.length > 0 && text.length > 0) {
-    _capturedAttributesBeforeChange =
-        [textView.textStorage attributesAtIndex:range.location
-                                 effectiveRange:NULL];
-  }
-
   // Check if the user pressed "Enter"
   if ([text isEqualToString:@"\n"]) {
     const bool shouldSubmit = [self textInputShouldSubmitOnReturn];
@@ -2118,6 +2108,17 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
   if (![self acceptsReplacementText:text range:range])
     return NO;
+
+  // Capture the attributes at range.location that are being replaced
+  // (autocorrect / predictive) so didProcessEditing: can re-stamp them onto the
+  // replacement. Only capture for genuine replacements (text.length > 0), not
+  // for deletions/backspace (text.length == 0).
+  if (range.length > 0 && text.length > 0) {
+    _capturedAttributesBeforeChange =
+        [textView.textStorage attributesAtIndex:range.location
+                                 effectiveRange:NULL];
+  }
+
   [self handleKeyPressInRange:text range:range];
 
   CheckboxListStyle *cbLStyle =
