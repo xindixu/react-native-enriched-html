@@ -202,7 +202,7 @@ test('toggles target the nearest list and preserve descendant check states', () 
   expect(shape()).toEqual([
     list('orderedList', item('a', [list('orderedList', item('b', [child]))])),
   ]);
-  expect(editor.commands.toggleCheckboxList(true)).toBe(true);
+  expect(editor.commands.toggleCheckboxList(false)).toBe(true);
   expect(shape()).toEqual([
     list(
       'orderedList',
@@ -330,5 +330,26 @@ test.each(['unorderedList', 'orderedList', 'checkboxList'])(
     expect(shape()).toEqual(original);
     expect(editor.commands.redo()).toBe(true);
     expect(shape()).toEqual(indented);
+  }
+);
+
+test.each([true, false])(
+  'checkbox conversion honors explicit checked=%s without changing descendants',
+  (checked) => {
+    const child = list(
+      'checkboxList',
+      item('checked child', [], true),
+      item('unchecked child', [], false)
+    );
+    load(list('unorderedList', item('parent', [child]), item('sibling')));
+    select('parent');
+    expect(editor.commands.toggleCheckboxList(checked)).toBe(true);
+    expect(shape()).toEqual([
+      list(
+        'checkboxList',
+        item('parent', [child], checked),
+        item('sibling', [], checked)
+      ),
+    ]);
   }
 );

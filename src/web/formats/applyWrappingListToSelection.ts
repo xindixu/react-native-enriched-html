@@ -33,7 +33,9 @@ export function applyWrappingListToSelection(
         const listType = tr.doc.type.schema.nodes[listTypeName]!;
         const itemType = tr.doc.type.schema.nodes[itemTypeName]!;
         const items = children(list).map((item) =>
-          item.type === itemType ? item : itemType.create(null, item.content)
+          item.type === itemType
+            ? item
+            : itemType.create(itemAttrs, item.content)
         );
         replaceList(tr, tr.selection.$from.before(depth), list, [
           listType.create(list.attrs, items),
