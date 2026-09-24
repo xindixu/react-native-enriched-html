@@ -4,7 +4,10 @@ import type { NativeProps } from '../../spec/EnrichedTextInputNativeComponent';
 import type { EnrichedTextInputInstance } from '../../types';
 import { EnrichedTextInput } from '../../native/EnrichedTextInput';
 
-jest.mock('react-native', () => ({ processColor: () => 0 }));
+jest.mock('react-native', () => ({
+  processColor: () => 0,
+  Platform: { OS: 'ios' },
+}));
 
 let mockProps: NativeProps;
 const mockComplete = jest.fn();
@@ -75,4 +78,17 @@ it('settles command dispatch failure without leaving a pending completion', asyn
     } as never);
   });
   expect(await ref.current!.completePaste('paste-1', '')).toBe(false);
+});
+
+it('forwards the iOS emoji catalog and unwraps native image errors', () => {
+  const emoji = { shortcode: ':party:', uri: 'https://example.com/party.jpg' };
+  const onError = jest.fn();
+  act(() =>
+    root.render(
+      <EnrichedTextInput customEmojis={[emoji]} onCustomEmojiError={onError} />
+    )
+  );
+  expect(mockProps.customEmojis).toEqual([emoji]);
+  mockProps.onCustomEmojiError!({ nativeEvent: emoji } as never);
+  expect(onError).toHaveBeenCalledWith(emoji);
 });
