@@ -9,6 +9,19 @@ import {
 
 test.beforeEach(async ({ page }) => gotoVisualRegression(page));
 
+for (const tag of ['ul', 'ol']) {
+  test(`empty ${tag} parent survives loading and reloading`, async ({
+    page,
+  }) => {
+    const html = `<html><${tag}><li><ul><li>child</li></ul></li></${tag}></html>`;
+    await setEditorHtml(page, html);
+    await expect.poll(() => getSerializedHtml(page)).toBe(html);
+    await expect(editorLocator(page).locator('li li')).toHaveCount(1);
+    await setEditorHtml(page, await getSerializedHtml(page));
+    await expect.poll(() => getSerializedHtml(page)).toBe(html);
+  });
+}
+
 for (const [name, tag, attrs] of [
   ['bullets', 'ul', ''],
   ['numbers', 'ol', ''],

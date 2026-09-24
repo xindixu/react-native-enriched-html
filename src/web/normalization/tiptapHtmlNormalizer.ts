@@ -5,6 +5,7 @@ import {
   checkboxHtmlFromTiptap,
 } from './checkboxHtmlNormalizer';
 import { normalizeHtml } from './htmlNormalizer';
+import { wrapBareLiContentInParagraph } from './prepareHtmlForWeb';
 
 export function prepareHtmlForTiptap(
   html: string,
@@ -16,6 +17,9 @@ export function prepareHtmlForTiptap(
     html = normalizeHtml(html);
   }
   html = checkboxHtmlForTiptap(html);
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  wrapBareLiContentInParagraph(doc);
+  html = doc.body.innerHTML;
   html = html.replace(/<br\s*\/?>/gi, '<p></p>');
   return html;
 }

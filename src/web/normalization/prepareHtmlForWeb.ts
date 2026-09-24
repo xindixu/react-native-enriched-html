@@ -34,7 +34,7 @@ export function prepareHtmlForWeb(
  *     </li>
  *   </ul>
  */
-function wrapBareLiContentInParagraph(doc: Document) {
+export function wrapBareLiContentInParagraph(doc: Document) {
   // Target only standard lists (ignore checkbox lists, as they get wrapped in <label> later)
   const listItems = doc.querySelectorAll(
     'ul:not([data-type="checkbox"]) > li, ol > li'

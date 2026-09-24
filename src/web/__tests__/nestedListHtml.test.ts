@@ -19,6 +19,32 @@ import {
 import { prepareHtmlForWeb } from '../normalization/prepareHtmlForWeb';
 
 describe('nested list HTML', () => {
+  test.each(['ul', 'ol'])(
+    'real editor restores empty %s parents without lifting children',
+    (tag) => {
+      const html = `<${tag}><li><ul><li>child</li></ul></li></${tag}>`;
+      const editor = new Editor({
+        extensions: [
+          Document,
+          Paragraph,
+          Text,
+          EnrichedListItem,
+          EnrichedCheckboxItem,
+          EnrichedOrderedList,
+          EnrichedUnorderedList,
+          EnrichedCheckboxList,
+        ],
+        content: prepareHtmlForTiptap(html, true),
+      });
+      try {
+        expect(normalizeHtmlFromTiptap(editor.getHTML(), () => undefined)).toBe(
+          `<html>${html}</html>`
+        );
+      } finally {
+        editor.destroy();
+      }
+    }
+  );
   test.each(['ul', 'ol', 'ul data-type="checkbox"'])(
     'real editor restores mixed children under %s',
     (parent) => {
