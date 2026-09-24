@@ -6,7 +6,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.ImageDecoder
+import android.graphics.Movie
 import android.graphics.PixelFormat
+import android.graphics.drawable.Animatable
 import android.graphics.drawable.AnimatedImageDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -58,9 +60,9 @@ class AsyncDrawable(
           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && internalDrawable is AnimatedImageDrawable) {
             (internalDrawable as AnimatedImageDrawable).apply {
               repeatCount = AnimatedImageDrawable.REPEAT_INFINITE
-              start()
             }
           }
+          (internalDrawable as? Animatable)?.start()
           isLoaded = true
           onResult?.invoke(drawable != null)
           onLoaded?.invoke()
@@ -83,6 +85,13 @@ class AsyncDrawable(
         Log.w("AsyncDrawable", "ImageDecoder failed, falling back to Bitmap", e)
       }
     }
+    if (preserveAspectRatio && Build.VERSION.SDK_INT < Build.VERSION_CODES.P &&
+      bytes.size >= 6 && String(bytes, 0, 3, Charsets.US_ASCII) == "GIF"
+    ) {
+      @Suppress("DEPRECATION")
+      val movie = Movie.decodeByteArray(bytes, 0, bytes.size)
+      if (movie != null) return LegacyGifDrawable(movie)
+    }
     return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.toDrawable(Resources.getSystem())
   }
 
@@ -103,9 +112,7 @@ class AsyncDrawable(
 
   fun dispose() {
     disposed = true
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && internalDrawable is AnimatedImageDrawable) {
-      (internalDrawable as AnimatedImageDrawable).stop()
-    }
+    (internalDrawable as? Animatable)?.stop()
     internalDrawable.callback = null
     callback = null
   }
