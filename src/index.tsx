@@ -1,6 +1,7 @@
 export { EnrichedTextInput } from './web/EnrichedTextInput';
 export { EnrichedText } from './web/EnrichedText';
 export type {
+  CustomEmoji,
   EnrichedInputStyle,
   EnrichedTextInputProps,
   EnrichedTextProps,

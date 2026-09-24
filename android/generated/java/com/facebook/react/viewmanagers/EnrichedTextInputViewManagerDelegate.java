@@ -44,6 +44,9 @@ public class EnrichedTextInputViewManagerDelegate<T extends View, U extends Base
       case "mentionIndicators":
         mViewManager.setMentionIndicators(view, (ReadableArray) value);
         break;
+      case "customEmojis":
+        mViewManager.setCustomEmojis(view, (ReadableArray) value);
+        break;
       case "cursorColor":
         mViewManager.setCursorColor(view, ColorPropConverter.getColor(value, view.getContext()));
         break;

@@ -17,6 +17,11 @@ class EnrichedTextInputViewEventEmitter : public ViewEventEmitter {
  public:
   using ViewEventEmitter::ViewEventEmitter;
 
+  struct OnCustomEmojiError {
+      std::string shortcode;
+    std::string uri;
+    };
+
   struct OnInputFocus {
       int target;
     };
@@ -385,6 +390,8 @@ class EnrichedTextInputViewEventEmitter : public ViewEventEmitter {
   struct OnSubmitEditing {
       std::string text;
     };
+  void onCustomEmojiError(OnCustomEmojiError value) const;
+
   void onInputFocus(OnInputFocus value) const;
 
   void onInputBlur(OnInputBlur value) const;

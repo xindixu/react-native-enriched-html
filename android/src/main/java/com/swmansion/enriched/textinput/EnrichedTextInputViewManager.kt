@@ -186,6 +186,11 @@ class EnrichedTextInputViewManager :
     view?.setProcessPaste(processPaste)
   }
 
+  @ReactProp(name = "customEmojis")
+  override fun setCustomEmojis(view: EnrichedTextInputView?, emojis: ReadableArray?) {
+    // Accepted for API compatibility; this view renders shortcodes as text.
+  }
+
   @ReactProp(name = "mentionIndicators")
   override fun setMentionIndicators(
     view: EnrichedTextInputView?,

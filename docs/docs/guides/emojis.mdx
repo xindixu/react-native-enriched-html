@@ -77,3 +77,42 @@ const htmlStyle = {
 Type `:` followed by a name - `:fire`, `:heart` - then tap a suggestion. The shortcode is replaced with a single emoji that you can place anywhere in the text.
 
 <InteractiveExample src={EmojiEditorSrc} component={EmojiEditor} />
+
+## Custom emoji images
+
+On web, pass a catalog to render recognized shortcodes as compact inline images:
+
+```tsx
+<EnrichedTextInput
+  customEmojis={[
+    { shortcode: ':party:', uri: 'https://example.com/party.gif' },
+  ]}
+  onCustomEmojiError={({ shortcode, uri }) => {
+    // Refresh your catalog if this image URL is no longer valid.
+  }}
+/>
+```
+
+`customEmojis` and `onCustomEmojiError` are accepted but ignored on iOS and Android.
+An omitted catalog behaves like an empty catalog.
+
+Type, paste, or restore `:party:` to display its image. You can also complete a
+`:` mention with `setMention(':', ':party:')`. Names start with a lowercase ASCII
+letter or digit and contain up to 64 lowercase letters, digits, underscores, or
+hyphens. A shortcode next to a Unicode letter, combining mark, digit, or underscore
+stays literal. Code spans, code blocks, and other mention labels stay literal too.
+A shortcode must share one formatting run to become an image.
+
+Each emoji is one editing item: selection offsets and text-change events use one
+`\uFFFC` character for it. The text-length limit counts its full shortcode length.
+HTML and clipboard exports contain the shortcode text with its surrounding
+formatting, so you can store and restore content without retaining image URLs.
+Emoji images are not pasted-image attachments.
+
+Catalog updates preserve selection and undo history. Removing a catalog entry
+restores its shortcode text. Failed images display their shortcode and call
+`onCustomEmojiError` once per shortcode/URI pair during the editor lifetime.
+Changing the URI retries loading. The caller owns catalog fetching and retry policy.
+
+The image box scales with the editor font, preserves the image's aspect ratio,
+and supports browser-rendered animation. Its accessible label is the shortcode.

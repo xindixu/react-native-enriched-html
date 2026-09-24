@@ -13,6 +13,16 @@
 
 namespace facebook::react {
 
+void EnrichedTextInputViewEventEmitter::onCustomEmojiError(OnCustomEmojiError event) const {
+  dispatchEvent("customEmojiError", [event=std::move(event)](jsi::Runtime &runtime) {
+    auto payload = jsi::Object(runtime);
+    payload.setProperty(runtime, "shortcode", event.shortcode);
+payload.setProperty(runtime, "uri", event.uri);
+    return payload;
+  });
+}
+
+
 void EnrichedTextInputViewEventEmitter::onInputFocus(OnInputFocus event) const {
   dispatchEvent("inputFocus", [event=std::move(event)](jsi::Runtime &runtime) {
     auto payload = jsi::Object(runtime);

@@ -1,6 +1,7 @@
 // EnrichedTextInput
 export { EnrichedTextInput } from './native/EnrichedTextInput';
 export type {
+  CustomEmoji,
   EnrichedInputStyle,
   EnrichedTextInputProps,
   OnChangeTextEvent,

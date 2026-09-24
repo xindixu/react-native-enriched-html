@@ -33,6 +33,9 @@ export function normalizeHtmlFromTiptap(
   html = checkboxHtmlFromTiptap(html);
 
   const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('span[data-custom-emoji]').forEach((emoji) => {
+    emoji.replaceWith(...emoji.childNodes);
+  });
   doc.querySelectorAll('li > p').forEach((paragraph) => {
     paragraph.replaceWith(...paragraph.childNodes);
   });

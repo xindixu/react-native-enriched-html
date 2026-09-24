@@ -388,6 +388,10 @@ export interface NativeProps extends ViewProps {
   placeholder?: string;
   placeholderTextColor?: ColorValue;
   mentionIndicators: string[];
+  customEmojis?: ReadonlyArray<Readonly<{ shortcode: string; uri: string }>>;
+  onCustomEmojiError?: DirectEventHandler<
+    Readonly<{ shortcode: string; uri: string }>
+  >;
   cursorColor?: ColorValue;
   selectionColor?: ColorValue;
   autoCapitalize?: string;

@@ -22,6 +22,7 @@ public interface EnrichedTextInputViewManagerInterface<T extends View> extends V
   void setPlaceholder(T view, @Nullable String value);
   void setPlaceholderTextColor(T view, @Nullable Integer value);
   void setMentionIndicators(T view, @Nullable ReadableArray value);
+  void setCustomEmojis(T view, @Nullable ReadableArray value);
   void setCursorColor(T view, @Nullable Integer value);
   void setSelectionColor(T view, @Nullable Integer value);
   void setAutoCapitalize(T view, @Nullable String value);

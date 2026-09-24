@@ -51,6 +51,8 @@ export const EnrichedTextInput = ({
   autoFocus = false,
   editable = ENRICHED_TEXT_INPUT_DEFAULT_PROPS.editable,
   mentionIndicators = ENRICHED_TEXT_INPUT_DEFAULT_PROPS.mentionIndicators.slice(),
+  customEmojis: _customEmojis,
+  onCustomEmojiError: _onCustomEmojiError,
   defaultValue,
   placeholder,
   placeholderTextColor,

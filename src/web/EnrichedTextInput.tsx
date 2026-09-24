@@ -7,6 +7,7 @@ import {
   type CSSProperties,
 } from 'react';
 import './EnrichedText.css';
+import { CustomEmojiNode, customEmojiKey } from './customEmojis/CustomEmoji';
 import { DOMParser, type Node } from '@tiptap/pm/model';
 import { Extension } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
@@ -110,7 +111,13 @@ function plainTextLength(doc: Node): number {
       if (!firstBlock) length++;
       firstBlock = false;
     }
-    length += node.isText ? node.text!.length : node.isLeaf ? 1 : 0;
+    length += node.isText
+      ? node.text!.length
+      : node.type.name === 'customEmoji'
+        ? node.attrs.shortcode.length
+        : node.isLeaf
+          ? 1
+          : 0;
   });
   return length;
 }
@@ -121,6 +128,8 @@ export const EnrichedTextInput = ({
   autoFocus = false,
   editable = ENRICHED_TEXT_INPUT_DEFAULT_PROPS.editable,
   placeholder = '',
+  customEmojis,
+  onCustomEmojiError,
   placeholderTextColor,
   cursorColor,
   selectionColor,
@@ -179,6 +188,8 @@ export const EnrichedTextInput = ({
     [onStartMention, onChangeMention, onEndMention, onMentionDetected]
   );
 
+  const emojiCatalogRef = useStableRef(customEmojis);
+  const emojiErrorRef = useStableRef(onCustomEmojiError);
   const htmlStyleRef = useStableRef(resolvedHtmlStyle);
   const onPasteImagesRef = useStableRef(onPasteImages);
   const onPasteRef = useStableRef(onPaste);
@@ -273,6 +284,10 @@ export const EnrichedTextInput = ({
         getLinkRegex: () => linkEmitterRef.current.linkRegex,
       }),
       EnrichedImage,
+      CustomEmojiNode.configure({
+        getCatalog: () => emojiCatalogRef.current ?? [],
+        onError: (event) => emojiErrorRef.current?.(event),
+      }),
       EnrichedMention,
       EnrichedHeading,
       EnrichedBlockquote,
@@ -311,6 +326,8 @@ export const EnrichedTextInput = ({
     ],
     [
       placeholder,
+      emojiCatalogRef,
+      emojiErrorRef,
       htmlStyleRef,
       mentionIndicatorsRef,
       textShortcutsRef,
@@ -431,6 +448,11 @@ export const EnrichedTextInput = ({
     },
     [tiptapContent, extensions]
   );
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed)
+      editor.view.dispatch(editor.state.tr.setMeta(customEmojiKey, true));
+  }, [editor, customEmojis]);
 
   useEffect(() => {
     editorInstanceRef.current = editor ?? null;
