@@ -14,7 +14,6 @@ import EnrichedTextInputNativeComponent, {
   type OnMentionDetectedInternal,
   type OnRequestHtmlResultEvent,
 } from '../spec/EnrichedTextInputNativeComponent';
-import { Platform } from 'react-native';
 import type {
   HostComponent,
   HostInstance,
@@ -355,9 +354,9 @@ export const EnrichedTextInput = ({
     <EnrichedTextInputNativeComponent
       ref={nativeRef}
       mentionIndicators={mentionIndicators}
-      customEmojis={Platform.OS === 'ios' ? customEmojis : undefined}
+      customEmojis={customEmojis}
       onCustomEmojiError={
-        Platform.OS === 'ios' && onCustomEmojiError
+        onCustomEmojiError
           ? ({ nativeEvent }) => onCustomEmojiError(nativeEvent)
           : undefined
       }

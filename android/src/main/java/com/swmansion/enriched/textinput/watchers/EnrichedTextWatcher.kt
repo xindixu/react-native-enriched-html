@@ -3,11 +3,8 @@ package com.swmansion.enriched.textinput.watchers
 import android.text.Editable
 import android.text.Spannable
 import android.text.TextWatcher
-import com.facebook.react.bridge.ReactContext
-import com.facebook.react.uimanager.UIManagerHelper
 import com.swmansion.enriched.common.EnrichedConstants
 import com.swmansion.enriched.textinput.EnrichedTextInputView
-import com.swmansion.enriched.textinput.events.OnChangeTextEvent
 import com.swmansion.enriched.textinput.spans.EnrichedInputAlignmentSpan
 import com.swmansion.enriched.textinput.spans.EnrichedSpans
 
@@ -68,10 +65,10 @@ class EnrichedTextWatcher(
 
   override fun afterTextChanged(s: Editable?) {
     if (s == null) return
-    emitEvents(s)
-
     if (view.isDuringTransaction) return
     applyStyles(s)
+    view.refreshCustomEmojis()
+    emitEvents(s)
     view.layoutManager.invalidateLayout()
   }
 
@@ -84,25 +81,12 @@ class EnrichedTextWatcher(
     view.parametrizedStyles?.afterTextChanged(s, startCursorPosition, endCursorPosition)
   }
 
-  private fun emitChangeText(editable: Editable) {
-    if (!view.shouldEmitOnChangeText) {
-      return
-    }
-    val context = view.context as ReactContext
-    val surfaceId = UIManagerHelper.getSurfaceId(context)
-    val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
-    dispatcher?.dispatchEvent(
-      OnChangeTextEvent(
-        surfaceId,
-        view.id,
-        editable,
-        view.experimentalSynchronousEvents,
-      ),
-    )
+  private fun emitChangeText() {
+    view.emitRenderedText()
   }
 
   private fun emitEvents(s: Editable) {
-    emitChangeText(s)
+    emitChangeText()
     if (!view.isReconcilingRichPasteUndo) {
       view.spanWatcher?.emitEvent(s, null)
     }

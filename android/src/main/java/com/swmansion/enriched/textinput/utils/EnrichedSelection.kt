@@ -9,6 +9,8 @@ import com.swmansion.enriched.textinput.EnrichedTextInputView
 import com.swmansion.enriched.textinput.events.OnChangeSelectionEvent
 import com.swmansion.enriched.textinput.events.OnLinkDetectedEvent
 import com.swmansion.enriched.textinput.events.OnMentionDetectedEvent
+import com.swmansion.enriched.textinput.renderedOffset
+import com.swmansion.enriched.textinput.renderedText
 import com.swmansion.enriched.textinput.spans.EnrichedInputLinkSpan
 import com.swmansion.enriched.textinput.spans.EnrichedInputMentionSpan
 import com.swmansion.enriched.textinput.spans.EnrichedSpans
@@ -232,6 +234,13 @@ class EnrichedSelection(
     return null
   }
 
+  internal fun emitCurrentSelection() {
+    val editable = view.text ?: return
+    val start = view.selectionStart
+    val end = view.selectionEnd
+    if (start >= 0 && end >= start && end <= editable.length) emitSelectionChangeEvent(editable, start, end)
+  }
+
   private fun emitSelectionChangeEvent(
     editable: Editable?,
     start: Int,
@@ -243,9 +252,9 @@ class EnrichedSelection(
     val surfaceId = UIManagerHelper.getSurfaceId(context)
     val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
 
-    val visibleStart = start - editable.zwsCountBefore(start)
-    val visibleEnd = end - editable.zwsCountBefore(end)
-    val text = editable.substring(start, end).replace(EnrichedConstants.ZWS_STRING, "")
+    val visibleStart = editable.renderedOffset(start)
+    val visibleEnd = editable.renderedOffset(end)
+    val text = editable.subSequence(start, end).renderedText()
     dispatcher?.dispatchEvent(
       OnChangeSelectionEvent(
         surfaceId,
@@ -285,8 +294,8 @@ class EnrichedSelection(
     previousLinkDetectedEvent.put("text", text)
     previousLinkDetectedEvent.put("url", url)
 
-    val visibleStart = start - spannable.zwsCountBefore(start)
-    val visibleEnd = end - spannable.zwsCountBefore(end)
+    val visibleStart = spannable.renderedOffset(start)
+    val visibleEnd = spannable.renderedOffset(end)
 
     val context = view.context as ReactContext
     val surfaceId = UIManagerHelper.getSurfaceId(context)

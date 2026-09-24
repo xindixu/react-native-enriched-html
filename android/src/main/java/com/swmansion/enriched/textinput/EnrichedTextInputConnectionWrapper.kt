@@ -40,7 +40,7 @@ class EnrichedTextInputConnectionWrapper(
     val previousSelectionStart = editText.selectionStart
     val previousSelectionEnd = editText.selectionEnd
 
-    val consumed = super.setComposingText(text, newCursorPosition)
+    val consumed = withEmojiInput { super.setComposingText(text, newCursorPosition) }
 
     val currentSelectionStart = editText.selectionStart
     val noPreviousSelection = previousSelectionStart == previousSelectionEnd
@@ -73,7 +73,7 @@ class EnrichedTextInputConnectionWrapper(
       }
       dispatchKeyEventOrEnqueue(inputKey)
     }
-    return super.commitText(text, newCursorPosition)
+    return withEmojiInput { super.commitText(text, newCursorPosition) }
   }
 
   override fun deleteSurroundingText(
@@ -81,7 +81,48 @@ class EnrichedTextInputConnectionWrapper(
     afterLength: Int,
   ): Boolean {
     dispatchKeyEvent(BACKSPACE_KEY_VALUE)
-    return super.deleteSurroundingText(beforeLength, afterLength)
+    val start = editText.selectionStart
+    val end = editText.selectionEnd
+    if (start >= 0 && end >= start && editText.deleteEmojiRange(start - beforeLength, end + afterLength)) return true
+    return withEmojiInput { super.deleteSurroundingText(beforeLength, afterLength) }
+  }
+
+  override fun finishComposingText(): Boolean = withEmojiInput { super.finishComposingText() }
+
+  override fun setComposingRegion(
+    start: Int,
+    end: Int,
+  ): Boolean = withEmojiInput { super.setComposingRegion(start, end) }
+
+  override fun deleteSurroundingTextInCodePoints(
+    beforeLength: Int,
+    afterLength: Int,
+  ): Boolean {
+    val text = editText.text ?: return super.deleteSurroundingTextInCodePoints(beforeLength, afterLength)
+    val start = editText.selectionStart
+    val end = editText.selectionEnd
+    if (start >= 0 && end >= start && beforeLength >= 0 && afterLength >= 0) {
+      val before = beforeLength.coerceAtMost(Character.codePointCount(text, 0, start))
+      val after = afterLength.coerceAtMost(Character.codePointCount(text, end, text.length))
+      if (editText.deleteEmojiRange(
+          Character.offsetByCodePoints(text, start, -before),
+          Character.offsetByCodePoints(text, end, after),
+        )
+      ) {
+        return true
+      }
+    }
+    return withEmojiInput { super.deleteSurroundingTextInCodePoints(beforeLength, afterLength) }
+  }
+
+  private inline fun withEmojiInput(block: () -> Boolean): Boolean {
+    editText.emojiInputDepth++
+    return try {
+      block()
+    } finally {
+      editText.emojiInputDepth--
+      editText.refreshCustomEmojis()
+    }
   }
 
   // Called by SwiftKey when cursor at beginning of input when there is a delete

@@ -654,9 +654,9 @@ export interface EnrichedTextInputProps extends Omit<ViewProps, 'children'> {
    * `onStartMention` callback is fired.
    */
   mentionIndicators?: string[];
-  /** Render catalog shortcodes as inline images on web. Native accepts but ignores this prop. */
+  /** Render catalog shortcodes as inline images on web, iOS, and Android. */
   customEmojis?: readonly CustomEmoji[];
-  /** Reports a failed image once per shortcode/URI pair during the editor lifetime. */
+  /** Reports a failed image once per shortcode/URI pair on web, or once per URI on native, during the editor lifetime. */
   onCustomEmojiError?: (event: CustomEmoji) => void;
 
   /**
