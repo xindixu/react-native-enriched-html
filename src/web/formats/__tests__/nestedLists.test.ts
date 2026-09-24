@@ -308,3 +308,27 @@ test.each([{ isComposing: true }, { keyCode: 229 }])(
     expect(event.defaultPrevented).toBe(false);
   }
 );
+
+test.each(['unorderedList', 'orderedList', 'checkboxList'])(
+  '%s indentation commands each have an independent undo step',
+  (type) => {
+    load(p(''));
+    const checked = type === 'checkboxList' ? false : undefined;
+    editor.commands.setContent({
+      type: 'doc',
+      content: [list(type, item('a', [], checked), item('b', [], checked))],
+    });
+    select('b');
+    const original = shape();
+    expect(key('Tab')).toBe(true);
+    const indented = shape();
+    expect(key('Tab', true)).toBe(true);
+    expect(shape()).toEqual(original);
+    expect(editor.commands.undo()).toBe(true);
+    expect(shape()).toEqual(indented);
+    expect(editor.commands.undo()).toBe(true);
+    expect(shape()).toEqual(original);
+    expect(editor.commands.redo()).toBe(true);
+    expect(shape()).toEqual(indented);
+  }
+);

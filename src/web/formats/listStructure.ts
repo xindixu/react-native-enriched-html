@@ -1,6 +1,7 @@
 import { isTextSelection } from '@tiptap/core';
 import type { Node, ResolvedPos } from '@tiptap/pm/model';
 import { Fragment } from '@tiptap/pm/model';
+import { closeHistory } from '@tiptap/pm/history';
 import {
   TextSelection,
   type Selection,
@@ -47,6 +48,7 @@ export function replaceList(
   replacement: Node[]
 ) {
   const { $anchor, $head } = tr.selection;
+  closeHistory(tr);
   tr.replaceWith(pos, pos + node.nodeSize, Fragment.from(replacement));
   const locate = ($old: ResolvedPos) => {
     let result = tr.mapping.map($old.pos);
