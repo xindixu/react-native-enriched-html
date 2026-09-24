@@ -1898,14 +1898,15 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   }
 
   _normalizingEmojis = YES;
-  NSRange emojiSelection = textView.selectedRange;
+  NSRange originalEmojiSelection = textView.selectedRange;
+  NSRange emojiSelection = originalEmojiSelection;
   [CustomEmojiUtils normalizeText:textView.textStorage
                         selection:&emojiSelection
                           catalog:_customEmojis
                          delegate:self
                         recognize:!_suppressEmojiRecognition];
   BOOL emojiSelectionChanged =
-      !NSEqualRanges(textView.selectedRange, emojiSelection);
+      !NSEqualRanges(originalEmojiSelection, emojiSelection);
   textView.selectedRange = emojiSelection;
   NSMutableDictionary *typing = [textView.typingAttributes mutableCopy];
   [typing removeObjectForKey:CustomEmojiAttributeName];
