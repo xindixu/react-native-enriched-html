@@ -10,6 +10,9 @@ import type {
   ViewProps,
 } from 'react-native';
 
+/** A custom emoji resolved by the caller's catalog. */
+export type CustomEmoji = { shortcode: string; uri: string };
+
 /**
  * Allowed container styles for `<EnrichedTextInput />`'s `style` prop.
  *
@@ -651,6 +654,10 @@ export interface EnrichedTextInputProps extends Omit<ViewProps, 'children'> {
    * `onStartMention` callback is fired.
    */
   mentionIndicators?: string[];
+  /** Render catalog shortcodes as inline images on web. Native accepts but ignores this prop. */
+  customEmojis?: readonly CustomEmoji[];
+  /** Reports a failed image once per shortcode/URI pair during the editor lifetime. */
+  onCustomEmojiError?: (event: CustomEmoji) => void;
 
   /**
    * Initial content rendered when the component mounts.

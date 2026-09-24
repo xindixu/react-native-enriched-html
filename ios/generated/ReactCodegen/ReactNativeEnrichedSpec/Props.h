@@ -19,6 +19,56 @@
 
 namespace facebook::react {
 
+struct EnrichedTextInputViewCustomEmojisStruct {
+  std::string shortcode{};
+  std::string uri{};
+
+
+#ifdef RN_SERIALIZABLE_STATE
+  bool operator==(const EnrichedTextInputViewCustomEmojisStruct&) const = default;
+
+  folly::dynamic toDynamic() const {
+    folly::dynamic result = folly::dynamic::object();
+    result["shortcode"] = shortcode;
+    result["uri"] = uri;
+    return result;
+  }
+#endif
+};
+
+static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, EnrichedTextInputViewCustomEmojisStruct &result) {
+  auto map = (std::unordered_map<std::string, RawValue>)value;
+
+  auto tmp_shortcode = map.find("shortcode");
+  if (tmp_shortcode != map.end()) {
+    fromRawValue(context, tmp_shortcode->second, result.shortcode);
+  }
+  auto tmp_uri = map.find("uri");
+  if (tmp_uri != map.end()) {
+    fromRawValue(context, tmp_uri->second, result.uri);
+  }
+}
+
+static inline std::string toString(const EnrichedTextInputViewCustomEmojisStruct &value) {
+  return "[Object EnrichedTextInputViewCustomEmojisStruct]";
+}
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const EnrichedTextInputViewCustomEmojisStruct &value) {
+  return value.toDynamic();
+}
+#endif
+
+static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, std::vector<EnrichedTextInputViewCustomEmojisStruct> &result) {
+  auto items = (std::vector<RawValue>)value;
+  for (const auto &item : items) {
+    EnrichedTextInputViewCustomEmojisStruct newItem;
+    fromRawValue(context, item, newItem);
+    result.emplace_back(newItem);
+  }
+}
+
+
 struct EnrichedTextInputViewHtmlStyleH1Struct {
   Float fontSize{0.0};
   bool bold{false};
@@ -869,6 +919,7 @@ class EnrichedTextInputViewProps final : public ViewProps {
   std::string placeholder{};
   SharedColor placeholderTextColor{};
   std::vector<std::string> mentionIndicators{};
+  std::vector<EnrichedTextInputViewCustomEmojisStruct> customEmojis{};
   SharedColor cursorColor{};
   SharedColor selectionColor{};
   std::string autoCapitalize{};

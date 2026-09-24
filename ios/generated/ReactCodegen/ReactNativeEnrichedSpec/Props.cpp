@@ -26,6 +26,7 @@ EnrichedTextInputViewProps::EnrichedTextInputViewProps(
     placeholder(convertRawProp(context, rawProps, "placeholder", sourceProps.placeholder, {})),
     placeholderTextColor(convertRawProp(context, rawProps, "placeholderTextColor", sourceProps.placeholderTextColor, {})),
     mentionIndicators(convertRawProp(context, rawProps, "mentionIndicators", sourceProps.mentionIndicators, {})),
+    customEmojis(convertRawProp(context, rawProps, "customEmojis", sourceProps.customEmojis, {})),
     cursorColor(convertRawProp(context, rawProps, "cursorColor", sourceProps.cursorColor, {})),
     selectionColor(convertRawProp(context, rawProps, "selectionColor", sourceProps.selectionColor, {})),
     autoCapitalize(convertRawProp(context, rawProps, "autoCapitalize", sourceProps.autoCapitalize, {})),
@@ -89,6 +90,10 @@ folly::dynamic EnrichedTextInputViewProps::getDiffProps(
 
   if (mentionIndicators != oldProps->mentionIndicators) {
     result["mentionIndicators"] = toDynamic(mentionIndicators);
+  }
+
+  if (customEmojis != oldProps->customEmojis) {
+    result["customEmojis"] = toDynamic(customEmojis);
   }
 
   if (cursorColor != oldProps->cursorColor) {

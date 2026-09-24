@@ -59,7 +59,7 @@ export function nativePosToTiptapPos(doc: Node, nativePos: number): number {
     // Only consider text-bearing leaf blocks (paragraphs, headings, code blocks).
     // Wrapper nodes (lists, list items, block quotes) are skipped
     if (node.isTextblock) {
-      const textLen = node.textContent.length;
+      const textLen = nativeLeafText(node, 0, node.content.size).length;
 
       if (currentNativePos + textLen >= nativePos) {
         // pos is before the opening tag; pos+1 is the first position inside.

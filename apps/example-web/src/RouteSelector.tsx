@@ -1,4 +1,5 @@
 import App from './App';
+import { TestCustomEmojis } from './testScreens/TestCustomEmojis';
 import { TestMentions } from './testScreens/TestMentions';
 import { TestLinks } from './testScreens/TestLinks';
 import { TestSetSelection } from './testScreens/TestSetSelection';
@@ -21,6 +22,8 @@ export default function RouteSelector() {
       window.removeEventListener('popstate', onPopState);
     };
   }, []);
+
+  if (path === '/test-custom-emojis') return <TestCustomEmojis />;
 
   if (path === '/test-set-selection') {
     return <TestSetSelection />;
