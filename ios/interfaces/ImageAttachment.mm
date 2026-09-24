@@ -75,7 +75,11 @@ static NSCache<NSString *, UIImage *> *ImageAttachmentCache(void) {
 - (void)loadAsync {
   NSURL *url = [NSURL URLWithString:self.uri];
   if (!url) {
+    self.loadFailed = YES;
     self.storedAnimatedImage = [UIImage systemImageNamed:@"photo"];
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self notifyUpdate];
+    });
     return;
   }
 
@@ -86,10 +90,10 @@ static NSCache<NSString *, UIImage *> *ImageAttachmentCache(void) {
     // through the animated image parser. It safely acts as a universal parser,
     // returning a single-frame UIImage for static formats and an animated
     // UIImage for GIFs and WebPs.
-    UIImage *img = bytes ? [UIImage animatedImageWithData:bytes]
-                         : [UIImage systemImageNamed:@"photo"];
+    UIImage *img = bytes ? [UIImage animatedImageWithData:bytes] : nil;
 
     dispatch_async(dispatch_get_main_queue(), ^{
+      self.loadFailed = bytes == nil || img == nil;
       if (bytes != nil && img != nil && self.uri.length > 0) {
         CGFloat scale = img.scale;
         // Calculate true byte cost based on pixels
@@ -98,7 +102,8 @@ static NSCache<NSString *, UIImage *> *ImageAttachmentCache(void) {
                                        img.size.height * scale * 4.0);
         [ImageAttachmentCache() setObject:img forKey:self.uri cost:cost];
       }
-      self.storedAnimatedImage = img;
+      self.storedAnimatedImage =
+          bytes ? img : [UIImage systemImageNamed:@"photo"];
       [self notifyUpdate];
     });
   });

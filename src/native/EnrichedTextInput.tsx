@@ -14,6 +14,7 @@ import EnrichedTextInputNativeComponent, {
   type OnMentionDetectedInternal,
   type OnRequestHtmlResultEvent,
 } from '../spec/EnrichedTextInputNativeComponent';
+import { Platform } from 'react-native';
 import type {
   HostComponent,
   HostInstance,
@@ -51,8 +52,8 @@ export const EnrichedTextInput = ({
   autoFocus = false,
   editable = ENRICHED_TEXT_INPUT_DEFAULT_PROPS.editable,
   mentionIndicators = ENRICHED_TEXT_INPUT_DEFAULT_PROPS.mentionIndicators.slice(),
-  customEmojis: _customEmojis,
-  onCustomEmojiError: _onCustomEmojiError,
+  customEmojis,
+  onCustomEmojiError,
   defaultValue,
   placeholder,
   placeholderTextColor,
@@ -354,6 +355,12 @@ export const EnrichedTextInput = ({
     <EnrichedTextInputNativeComponent
       ref={nativeRef}
       mentionIndicators={mentionIndicators}
+      customEmojis={Platform.OS === 'ios' ? customEmojis : undefined}
+      onCustomEmojiError={
+        Platform.OS === 'ios' && onCustomEmojiError
+          ? ({ nativeEvent }) => onCustomEmojiError(nativeEvent)
+          : undefined
+      }
       editable={editable}
       autoFocus={autoFocus}
       defaultValue={defaultValue}

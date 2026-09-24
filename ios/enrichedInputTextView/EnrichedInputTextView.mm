@@ -1,5 +1,6 @@
 #import "EnrichedInputTextView.h"
 #import "AlignmentUtils.h"
+#import "CustomEmojiUtils.h"
 #import "EnrichedTextInputView.h"
 #import "HtmlParser.h"
 #import "StringExtension.h"
@@ -15,6 +16,16 @@
 @end
 
 @implementation EnrichedInputTextView
+
+- (NSUndoManager *)undoManager {
+  return self.emojiHistory ? self.emojiHistory.undoManager
+                           : [super undoManager];
+}
+
+- (void)unmarkText {
+  [super unmarkText];
+  [(EnrichedTextInputView *)_input anyTextMayHaveBeenModified];
+}
 
 - (void)setMarkedText:(NSString *)markedText
         selectedRange:(NSRange)selectedRange {
@@ -91,8 +102,10 @@
   }
 
   // remove zero width spaces before copying the text
-  NSString *plainText = [typedInput->textView.textStorage.string
-      substringWithRange:typedInput->textView.selectedRange];
+  NSMutableAttributedString *exportText = [CustomEmojiUtils
+      expandedText:[self.textStorage
+                       attributedSubstringFromRange:self.selectedRange]];
+  NSString *plainText = exportText.string;
   NSString *fixedPlainText =
       [plainText stringByReplacingOccurrencesOfString:@"\u200B" withString:@""];
 
@@ -100,9 +113,7 @@
       [HtmlParser parseToHtmlFromRange:typedInput->textView.selectedRange
                                   host:typedInput];
 
-  NSMutableAttributedString *attrStr = [[typedInput->textView.textStorage
-      attributedSubstringFromRange:typedInput->textView.selectedRange]
-      mutableCopy];
+  NSMutableAttributedString *attrStr = exportText;
   NSRange fullAttrStrRange = NSMakeRange(0, attrStr.length);
   [attrStr.mutableString replaceOccurrencesOfString:@"\u200B"
                                          withString:@""
@@ -129,6 +140,7 @@
   if (typedInput == nullptr) {
     return;
   }
+  [typedInput prepareForEmojiEdit];
 
   [typedInput invalidatePendingPaste];
 
@@ -367,6 +379,7 @@
   if (typedInput == nullptr) {
     return;
   }
+  [typedInput prepareForEmojiEdit];
 
   [self copy:sender];
   [TextInsertionUtils replaceText:@""

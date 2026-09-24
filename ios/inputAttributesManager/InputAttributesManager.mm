@@ -2,6 +2,7 @@
 #import "AlignmentUtils.h"
 #import "ArrayExtension.h"
 #import "AttributeEntry.h"
+#import "CustomEmojiUtils.h"
 #import "EnrichedTextInputView.h"
 #import "ParagraphAttributesUtils.h"
 #import "RangeUtils.h"
@@ -90,6 +91,18 @@
       presentStyles[@([[style class] getType])] = [style all:dirtyRange];
     }
 
+    // Emoji metadata is independent of ImageStyle; preserve it through
+    // restyling.
+    NSMutableArray *emojis = [NSMutableArray new];
+    [_input->textView.textStorage
+        enumerateAttribute:NSAttachmentAttributeName
+                   inRange:dirtyRange
+                   options:0
+                usingBlock:^(id value, NSRange range, BOOL *stop) {
+                  if ([value isKindOfClass:CustomEmojiAttachment.class])
+                    [emojis
+                        addObject:@[ value, [NSValue valueWithRange:range] ]];
+                }];
     // now reset the attributes to default ones
     [_input->textView.textStorage setAttributes:_input->defaultTypingAttributes
                                           range:dirtyRange];
@@ -120,6 +133,20 @@
         [style reapplyFromStylePair:stylePair];
         [style applyStyling:occurenceRange];
       }
+    }
+    for (NSArray *entry in emojis) {
+      CustomEmojiAttachment *emoji = entry[0];
+      NSRange range = [(NSValue *)entry[1] rangeValue];
+      [_input->textView.textStorage addAttributes:@{
+        NSAttachmentAttributeName : emoji,
+        CustomEmojiAttributeName : emoji.shortcode
+      }
+                                            range:range];
+      [emoji
+          updateFont:[_input->textView.textStorage attribute:NSFontAttributeName
+                                                     atIndex:range.location
+                                              effectiveRange:NULL]
+                         ?: [_input.config primaryFont]];
     }
   }
   // do the typing attributes management, with no selection

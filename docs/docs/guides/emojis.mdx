@@ -80,7 +80,7 @@ Type `:` followed by a name - `:fire`, `:heart` - then tap a suggestion. The sho
 
 ## Custom emoji images
 
-On web, pass a catalog to render recognized shortcodes as compact inline images:
+On web and iOS, pass a catalog to render recognized shortcodes as compact inline images:
 
 ```tsx
 <EnrichedTextInput
@@ -93,7 +93,7 @@ On web, pass a catalog to render recognized shortcodes as compact inline images:
 />
 ```
 
-`customEmojis` and `onCustomEmojiError` are accepted but ignored on iOS and Android.
+`customEmojis` and `onCustomEmojiError` are accepted but ignored on Android.
 An omitted catalog behaves like an empty catalog.
 
 Type, paste, or restore `:party:` to display its image. You can also complete a
@@ -112,7 +112,13 @@ Emoji images are not pasted-image attachments.
 Catalog updates preserve selection and undo history. Removing a catalog entry
 restores its shortcode text. Failed images display their shortcode and call
 `onCustomEmojiError` once per shortcode/URI pair during the editor lifetime.
-Changing the URI retries loading. The caller owns catalog fetching and retry policy.
+On iOS, errors are deduplicated by URI. Changing the URI retries loading.
+The caller owns catalog fetching and retry policy.
 
 The image box scales with the editor font, preserves the image's aspect ratio,
-and supports browser-rendered animation. Its accessible label is the shortcode.
+and supports animated images through the platform image loader. Its accessible label is the shortcode.
+
+iOS defers recognition during marked-text composition and uses shortcode-based undo
+snapshots so catalog changes cannot invalidate historical selection ranges. Undo
+restores literal text without immediately recognizing it again. The next text edit
+resumes recognition. Native apps must be rebuilt to include iOS support.
