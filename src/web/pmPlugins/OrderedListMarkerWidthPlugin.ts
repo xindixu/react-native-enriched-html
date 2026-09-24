@@ -31,7 +31,7 @@ export const OrderedListMarkerWidthPlugin = Extension.create({
                 })
               );
 
-              return false;
+              return true;
             });
 
             return DecorationSet.create(state.doc, decorations);

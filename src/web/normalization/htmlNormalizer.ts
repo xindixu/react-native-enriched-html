@@ -1,6 +1,6 @@
 /*
  * Custom HTML normalizer for TipTap input.
- * Mirrors the native GumboNormalizer (cpp/parser/GumboNormalizer.c)
+ * Normalizes supported tags, preserving nested lists on web.
  */
 
 type CssStyles = {
@@ -423,7 +423,6 @@ function flattenBqNode(
 type LiCtx = {
   el: Element;
   styles: CssStyles;
-  nestedLists: Element[];
   hasEmitted: boolean;
 };
 
@@ -474,7 +473,16 @@ function flattenLiNode(
   }
 
   if (isListNode(node)) {
-    ctx.nestedLists.push(node);
+    if (isWhitespaceOnly(ib.buf)) ib.buf = '';
+    flushLiBuffer(ib, out, ctx);
+    if (!ctx.hasEmitted) {
+      out.buf += `<li${emitAttributes(ctx.el, 'li')}></li>`;
+      ctx.hasEmitted = true;
+    }
+    // Attach the child list to the last emitted paragraph of this item.
+    out.buf = out.buf.slice(0, -'</li>'.length);
+    walkNode(node, out);
+    out.buf += '</li>';
     return;
   }
   if (isBrNode(node)) {
@@ -663,12 +671,12 @@ function walkNode(node: Node, out: { buf: string }): void {
   // inline or block
   const es = extraStyles(parseCssStyle(node.getAttribute('style')), outName);
 
-  // <li>: flatten
+  // Flatten unsupported blocks within items while preserving child lists.
   if (outName === 'li') {
-    const nestedLists: Element[] = [];
     const liIb = { buf: '' };
-    const ctx: LiCtx = { el: node, styles: es, nestedLists, hasEmitted: false };
+    const ctx: LiCtx = { el: node, styles: es, hasEmitted: false };
     flattenLiChildren(node, liIb, out, ctx);
+    if (ctx.hasEmitted && isWhitespaceOnly(liIb.buf)) liIb.buf = '';
     flushLiBuffer(liIb, out, ctx);
 
     // if nothing emitted - the <li> is empty, we add it manually
@@ -676,7 +684,6 @@ function walkNode(node: Node, out: { buf: string }): void {
       out.buf += `<li${emitAttributes(ctx.el, 'li')}></li>`;
     }
 
-    for (const nl of nestedLists) walkChildren(nl, out);
     return;
   }
 

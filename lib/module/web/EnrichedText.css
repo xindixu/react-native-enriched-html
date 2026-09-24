@@ -170,8 +170,8 @@
 .eti-editor ul:not([data-type]) > li,
 .et-view ul:not([data-type]) > li {
   margin: 0;
-  display: flex;
-  align-items: baseline;
+  display: block;
+  position: relative;
 }
 
 .eti-editor ul:not([data-type]) > li::before,
@@ -186,8 +186,8 @@
   margin-left: calc(-1 * (var(--et-ul-bullet-size, 8px) + var(--et-ul-gap-width, 16px)));
   margin-right: var(--et-ul-gap-width, 16px);
 
-  position: relative;
-  top: calc(var(--et-ul-bullet-size, 8px) * 0.5 - 0.35em);
+  position: absolute;
+  top: 0.35em;
 }
 
 .eti-editor ol,
@@ -208,13 +208,15 @@
 .et-view ol > li {
   margin: 0;
   counter-increment: et-ol;
-  display: flex;
-  align-items: baseline;
+  display: block;
+  position: relative;
 }
 
 .eti-editor ol > li::before,
 .et-view ol > li::before {
   content: counter(et-ol) '.';
+  position: absolute;
+  top: 0;
   flex-shrink: 0;
   width: var(--et-ol-marker-col, var(--et-ol-margin-left, 16px));
   text-align: right;
@@ -327,8 +329,8 @@
 
 .et-view ul[data-type="checkbox"] > li {
   margin: 0;
-  display: flex;
-  align-items: baseline;
+  display: block;
+  position: relative;
 }
 
 .et-view ul[data-type="checkbox"] > li > input[type='checkbox'] {
@@ -347,8 +349,8 @@
   -webkit-tap-highlight-color: transparent;
 
   margin-top: 0;
-  position: relative;
-  top: calc(var(--et-checkbox-box-size, 24px) * 0.5 - 0.35em);
+  position: absolute;
+  top: 0;
 }
 
 .et-view ul[data-type="checkbox"] > li > label {

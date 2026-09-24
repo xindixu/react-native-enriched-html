@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import {
   editorLocator,
   gotoVisualRegression,
+  getSerializedHtml,
   setEditorHtml,
 } from '../helpers/visual-regression';
 
@@ -11,25 +12,21 @@ const CASES = [
     name: 'ul under ul',
     html: '<html><ul><li>item<ul><li>nested</li></ul></li></ul></html>',
     markers: ['item', 'nested'],
-    screenshot: 'list-nested-html-ul-in-ul.png',
   },
   {
     name: 'ol under ul',
     html: '<html><ul><li>outer<ol><li>nested</li></ol></li></ul></html>',
     markers: ['outer', 'nested'],
-    screenshot: 'list-nested-html-ol-in-ul.png',
   },
   {
     name: 'ul under ol',
     html: '<html><ol><li>outer<ul><li>nested</li></ul></li></ol></html>',
     markers: ['outer', 'nested'],
-    screenshot: 'list-nested-html-ul-in-ol.png',
   },
   {
     name: 'triple nested ul',
-    html: '<html><ul><li>outer<ul><li>nested<ul><li>deep</li></ul></li></ul></ul></html>',
+    html: '<html><ul><li>outer<ul><li>nested<ul><li>deep</li></ul></li></ul></li></ul></html>',
     markers: ['outer', 'nested', 'deep'],
-    screenshot: 'list-nested-html-triple-nested-ul.png',
   },
 ] as const;
 
@@ -38,7 +35,7 @@ test.describe('list nested html', () => {
     await gotoVisualRegression(page);
   });
 
-  for (const { name, html, markers, screenshot } of CASES) {
+  for (const { name, html, markers } of CASES) {
     test(name, async ({ page }) => {
       await setEditorHtml(page, html);
 
@@ -47,7 +44,14 @@ test.describe('list nested html', () => {
         await expect(editor).toContainText(m);
       }
 
-      await expect(editor).toHaveScreenshot(screenshot);
+      await expect.poll(() => getSerializedHtml(page)).toBe(html);
+      const paragraphs = editor.locator('li > p');
+      for (let i = 1; i < markers.length; i++) {
+        const parent = await paragraphs.nth(i - 1).boundingBox();
+        const child = await paragraphs.nth(i).boundingBox();
+        expect(child!.x).toBeGreaterThan(parent!.x);
+        expect(child!.y).toBeGreaterThanOrEqual(parent!.y + parent!.height - 1);
+      }
     });
   }
 });
