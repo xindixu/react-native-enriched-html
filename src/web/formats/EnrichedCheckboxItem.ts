@@ -1,35 +1,23 @@
 import { TaskItem } from '@tiptap/extension-list';
-
-import { listBackspace, listEnter } from './listKeyboard';
-
-const CHECKBOX_LIST_WRAPPERS = [
-  'checkboxList',
-  'unorderedList',
-  'orderedList',
-] as const;
+import { listBackspace, listEnter, listTab } from './listKeyboard';
+import { ITEM_CONTENT } from './listStructure';
 
 export const EnrichedCheckboxItem = TaskItem.extend({
   name: 'checkboxItem',
-
   addOptions() {
     return {
-      nested: false,
+      nested: true,
       HTMLAttributes: {},
       taskListTypeName: 'checkboxList',
     };
   },
-
-  content: 'paragraph',
-
+  content: ITEM_CONTENT,
   addKeyboardShortcuts() {
     return {
-      Enter: ({ editor }) => listEnter(editor, 'checkboxItem'),
-      Backspace: ({ editor }) => {
-        if (editor.isActive('listItem')) {
-          return false;
-        }
-        return listBackspace(editor, 'checkboxItem', CHECKBOX_LIST_WRAPPERS);
-      },
+      'Enter': ({ editor }) => listEnter(editor, 'checkboxItem'),
+      'Backspace': ({ editor }) => listBackspace(editor, 'checkboxItem'),
+      'Tab': ({ editor }) => listTab(editor),
+      'Shift-Tab': ({ editor }) => listTab(editor, true),
     };
   },
 });

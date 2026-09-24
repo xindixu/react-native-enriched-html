@@ -1,63 +1,83 @@
-import { isTextSelection, type Editor, type JSONContent } from '@tiptap/core';
-
+import { type Editor } from '@tiptap/core';
+import { Fragment } from '@tiptap/pm/model';
+import { TextSelection } from '@tiptap/pm/state';
 import { lineStartBackspace } from './wrappedBlockKeyboard';
-import { withPreservedAlignment } from './formatRules';
+import {
+  children,
+  LIST_NAMES,
+  outdentList,
+  replaceList,
+  selectedList,
+} from './listStructure';
 
-function emptyListItemContent(itemName: string): JSONContent {
-  return {
-    type: itemName,
-    content: [{ type: 'paragraph' }],
-  };
+export function listTab(editor: Editor, outdent = false): boolean {
+  if (editor.view.composing) return false;
+  return editor.commands.command(({ tr, dispatch }) => {
+    const selected = selectedList(tr.selection);
+    if (!selected || (!outdent && !selected.from)) return false;
+    if (!dispatch) return true;
+    if (outdent) return outdentList(tr);
+    const { depth, list, from, to } = selected;
+    const items = children(list);
+    const previous = items[from - 1]!;
+    const content = children(previous);
+    const last = content[content.length - 1]!;
+    const nested = Fragment.from(items.slice(from, to));
+    if (last.type === list.type)
+      content[content.length - 1] = last.copy(last.content.append(nested));
+    else content.push(list.type.create(list.attrs, nested));
+    items.splice(
+      from - 1,
+      to - from + 1,
+      previous.copy(Fragment.from(content))
+    );
+    replaceList(tr, tr.selection.$from.before(depth), list, [
+      list.copy(Fragment.from(items)),
+    ]);
+    return true;
+  });
 }
 
-// Enter: always extend the list — splitListItem fails on an empty last item (see TipTap splitListItem).
+/** Empty items continue at the current depth rather than leaving their list. */
 export function listEnter(editor: Editor, itemName: string): boolean {
-  if (!editor.isActive(itemName)) {
+  const selected = selectedList(editor.state.selection);
+  if (
+    editor.view.composing ||
+    !selected ||
+    selected.list.child(selected.from).type.name !== itemName
+  )
     return false;
-  }
-  if (editor.chain().focus().splitListItem(itemName).scrollIntoView().run()) {
-    return true;
-  }
-
   const { selection } = editor.state;
-  if (!selection.empty || !isTextSelection(selection)) {
-    return false;
+  if (selection.empty && selection.$from.parent.content.size === 0) {
+    return editor.commands.command(({ tr }) => {
+      const $from = tr.selection.$from;
+      const item = $from.node(selected.depth + 1);
+      const pos = $from.after(selected.depth + 1);
+      tr.insert(
+        pos,
+        item.type.create(null, $from.parent.type.create($from.parent.attrs))
+      );
+      tr.setSelection(TextSelection.create(tr.doc, pos + 2));
+      return true;
+    });
   }
-
-  const $from = selection.$from;
-  if ($from.parent.content.size > 0) {
-    return false;
-  }
-
-  // Flat lists only: list item is always the parent block of the paragraph (depth − 1).
-  const itemDepth = $from.depth - 1;
-  if (itemDepth < 1) {
-    return false;
-  }
-  const insertPos = $from.after(itemDepth);
-
   return editor
     .chain()
-    .focus()
-    .insertContentAt(insertPos, emptyListItemContent(itemName))
-    .scrollIntoView()
+    .splitListItem(
+      itemName,
+      itemName === 'checkboxItem' ? { checked: false } : undefined
+    )
     .run();
 }
 
-// Backspace: first press at line start lifts the list item; second press (paragraph below list) joins backward.
-export function listBackspace(
-  editor: Editor,
-  itemName: string,
-  wrapperNames: readonly string[]
-): boolean {
+export function listBackspace(editor: Editor, itemName: string): boolean {
+  if (editor.view.composing) return false;
+  const selected = selectedList(editor.state.selection);
+  if (selected && selected.list.child(selected.from).type.name !== itemName)
+    return false;
   return lineStartBackspace(editor, {
-    isActive: () => editor.isActive(itemName),
-    lift: () => {
-      return withPreservedAlignment(editor, editor.chain(), (c) =>
-        c.focus().liftListItem(itemName)
-      );
-    },
-    shouldJoinBefore: (beforeName) =>
-      beforeName != null && wrapperNames.includes(beforeName),
+    isActive: () => selected !== null,
+    lift: () => listTab(editor, true),
+    shouldJoinBefore: (before) => before != null && LIST_NAMES.includes(before),
   });
 }

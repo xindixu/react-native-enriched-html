@@ -8,22 +8,13 @@ import {
   tiptapPosToNativePos,
 } from '../nativeMappers/positionMapping';
 import { withPreservedAlignment } from './formatRules';
+import {
+  children,
+  outdentList,
+  replaceList,
+  selectedList,
+} from './listStructure';
 
-/**
- * Clears block styling with `clearNodes`, then wraps the selection’s blocks in a flat
- * `listTypeName` (one `itemTypeName` per block).
- *
- * We don't use toggleList because we've changed ListItem's content to
- * 'paragraph', in order not to allow nested lists. This however caused the
- * default toggle implementation to fail.
- *
- * SELECTION PRESERVATION: Modifying node boundaries here (destroying and
- * recreating blocks) causes ProseMirror's built-in selection to be invalid. To
- * fix this, we use our Android/iOS native coordinate system. Because the native
- * selection only cares about raw content and ignores Tiptap's node boundary
- * tokens, we store the cursor positions in the native format before the
- * transaction, and map them back to the new Tiptap document afterward.
- */
 export function applyWrappingListToSelection(
   editor: Editor,
   chain: () => ChainedCommands,
@@ -31,6 +22,37 @@ export function applyWrappingListToSelection(
   itemTypeName: string,
   itemAttrs: Record<string, unknown> | null = null
 ): boolean {
+  const selected = selectedList(editor.state.selection);
+  if (selected) {
+    return chain()
+      .command(({ tr }) => {
+        const current = selectedList(tr.selection);
+        if (!current) return false;
+        const { list, depth } = current;
+        if (list.type.name === listTypeName) return outdentList(tr);
+        const listType = tr.doc.type.schema.nodes[listTypeName]!;
+        const itemType = tr.doc.type.schema.nodes[itemTypeName]!;
+        const items = children(list).map((item) =>
+          item.type === itemType ? item : itemType.create(null, item.content)
+        );
+        replaceList(tr, tr.selection.$from.before(depth), list, [
+          listType.create(list.attrs, items),
+        ]);
+        return true;
+      })
+      .run();
+  }
+  // Do not flatten a selection that crosses nested-list parents.
+  let crossesList = false;
+  editor.state.doc.nodesBetween(
+    editor.state.selection.from,
+    editor.state.selection.to,
+    (node) => {
+      if (['listItem', 'checkboxItem'].includes(node.type.name))
+        crossesList = true;
+    }
+  );
+  if (crossesList) return false;
   const { doc: docBefore, selection: selBefore } = editor.state;
   const nativeAnchor = tiptapPosToNativePos(docBefore, selBefore.anchor);
   const nativeHead = tiptapPosToNativePos(docBefore, selBefore.head);
