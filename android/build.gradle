@@ -40,6 +40,9 @@ def supportsNamespace() {
 }
 
 android {
+	testOptions {
+		unitTests.includeAndroidResources = true
+	}
 	if (supportsNamespace()) {
 		namespace "com.swmansion.enriched"
 
@@ -98,6 +101,7 @@ dependencies {
 	implementation 'org.ccil.cowan.tagsoup:tagsoup:1.2.1'
 	implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 	testImplementation 'junit:junit:4.13.2'
+	testImplementation 'org.robolectric:robolectric:4.16.1'
 }
 
 react {

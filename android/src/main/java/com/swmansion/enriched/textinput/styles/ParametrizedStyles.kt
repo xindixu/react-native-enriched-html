@@ -8,6 +8,7 @@ import android.text.Spanned
 import com.swmansion.enriched.common.EnrichedConstants
 import com.swmansion.enriched.common.EnrichedSpanFlags
 import com.swmansion.enriched.textinput.EnrichedTextInputView
+import com.swmansion.enriched.textinput.spans.EnrichedInputCustomEmojiSpan
 import com.swmansion.enriched.textinput.spans.EnrichedInputImageSpan
 import com.swmansion.enriched.textinput.spans.EnrichedInputLinkSpan
 import com.swmansion.enriched.textinput.spans.EnrichedInputMentionSpan
@@ -264,6 +265,17 @@ class ParametrizedStyles(
     endCursorPosition: Int,
   ) {
     val mentionHandler = view.mentionHandler ?: return
+    val editable = view.text
+    if (editable != null &&
+      editable.getSpans(0, editable.length, EnrichedInputCustomEmojiSpan::class.java).any {
+        endCursorPosition > editable.getSpanStart(it) && endCursorPosition <= editable.getSpanEnd(it)
+      }
+    ) {
+      mentionStart = null
+      mentionEnd = null
+      mentionHandler.endMention()
+      return
+    }
     val currentWord = getWordAtIndex(s, endCursorPosition) ?: return
     val spannable = view.text as Spannable
 

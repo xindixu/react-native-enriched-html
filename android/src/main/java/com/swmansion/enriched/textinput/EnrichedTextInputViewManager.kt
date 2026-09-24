@@ -21,6 +21,7 @@ import com.swmansion.enriched.textinput.events.OnChangeSelectionEvent
 import com.swmansion.enriched.textinput.events.OnChangeStateEvent
 import com.swmansion.enriched.textinput.events.OnChangeTextEvent
 import com.swmansion.enriched.textinput.events.OnContextMenuItemPressEvent
+import com.swmansion.enriched.textinput.events.OnCustomEmojiErrorEvent
 import com.swmansion.enriched.textinput.events.OnInputBlurEvent
 import com.swmansion.enriched.textinput.events.OnInputFocusEvent
 import com.swmansion.enriched.textinput.events.OnInputKeyPressEvent
@@ -81,6 +82,7 @@ class EnrichedTextInputViewManager :
     map.put(OnInputKeyPressEvent.EVENT_NAME, mapOf("registrationName" to OnInputKeyPressEvent.EVENT_NAME))
     map.put(OnPasteImagesEvent.EVENT_NAME, mapOf("registrationName" to OnPasteImagesEvent.EVENT_NAME))
     map.put(OnMaxLengthExceededEvent.EVENT_NAME, mapOf("registrationName" to OnMaxLengthExceededEvent.EVENT_NAME))
+    map.put(OnCustomEmojiErrorEvent.EVENT_NAME, mapOf("registrationName" to OnCustomEmojiErrorEvent.EVENT_NAME))
     map.put(OnPasteEvent.EVENT_NAME, mapOf("registrationName" to OnPasteEvent.EVENT_NAME))
     map.put(OnPasteCompleteEvent.EVENT_NAME, mapOf("registrationName" to OnPasteCompleteEvent.EVENT_NAME))
     map.put(OnContextMenuItemPressEvent.EVENT_NAME, mapOf("registrationName" to OnContextMenuItemPressEvent.EVENT_NAME))
@@ -187,8 +189,11 @@ class EnrichedTextInputViewManager :
   }
 
   @ReactProp(name = "customEmojis")
-  override fun setCustomEmojis(view: EnrichedTextInputView?, emojis: ReadableArray?) {
-    // Accepted for API compatibility; this view renders shortcodes as text.
+  override fun setCustomEmojis(
+    view: EnrichedTextInputView?,
+    emojis: ReadableArray?,
+  ) {
+    view?.setCustomEmojis(emojis)
   }
 
   @ReactProp(name = "mentionIndicators")

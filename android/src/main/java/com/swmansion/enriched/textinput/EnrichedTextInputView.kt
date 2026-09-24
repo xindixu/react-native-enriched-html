@@ -49,7 +49,9 @@ import com.swmansion.enriched.common.parser.EnrichedParser
 import com.swmansion.enriched.common.pixelFromSpOrDp
 import com.swmansion.enriched.textinput.events.MentionHandler
 import com.swmansion.enriched.textinput.events.OnCaretChangeEvent
+import com.swmansion.enriched.textinput.events.OnChangeTextEvent
 import com.swmansion.enriched.textinput.events.OnContextMenuItemPressEvent
+import com.swmansion.enriched.textinput.events.OnCustomEmojiErrorEvent
 import com.swmansion.enriched.textinput.events.OnInputBlurEvent
 import com.swmansion.enriched.textinput.events.OnInputFocusEvent
 import com.swmansion.enriched.textinput.events.OnMaxLengthExceededEvent
@@ -80,7 +82,6 @@ import com.swmansion.enriched.textinput.utils.RichContentReceiver
 import com.swmansion.enriched.textinput.utils.ShortcutsHandler
 import com.swmansion.enriched.textinput.utils.mergeSpannables
 import com.swmansion.enriched.textinput.utils.setCheckboxClickListener
-import com.swmansion.enriched.textinput.utils.zwsCountBefore
 import com.swmansion.enriched.textinput.watchers.EnrichedSpanWatcher
 import com.swmansion.enriched.textinput.watchers.EnrichedTextWatcher
 import java.util.regex.Pattern
@@ -104,6 +105,88 @@ class EnrichedTextInputView :
   AppCompatEditText,
   TextView.OnEditorActionListener {
   var maxPlainTextLength: Int = -1
+  internal var emojiInputDepth = 0
+  private var hasCustomEmojis = false
+  private var refreshingEmojis = false
+  private var previousRenderedText: String? = null
+  private val customEmojiSupport by lazy {
+    CustomEmojiSupport(this) { shortcode, uri ->
+      val reactContext = context as ReactContext
+      UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)?.dispatchEvent(
+        OnCustomEmojiErrorEvent(UIManagerHelper.getSurfaceId(reactContext), id, shortcode, uri),
+      )
+    }
+  }
+
+  fun setCustomEmojis(entries: ReadableArray?) {
+    val catalog = mutableMapOf<String, String>()
+    for (index in 0 until (entries?.size() ?: 0)) {
+      val entry = entries?.getMap(index) ?: continue
+      val shortcode = entry.getString("shortcode") ?: continue
+      val uri = entry.getString("uri") ?: continue
+      catalog[shortcode] = uri
+    }
+    hasCustomEmojis = catalog.isNotEmpty()
+    customEmojiSupport.setCatalog(catalog)
+    refreshCustomEmojis()
+  }
+
+  internal fun refreshCustomEmojis() {
+    if (refreshingEmojis || isDuringTransaction || emojiInputDepth > 0) return
+    refreshingEmojis = true
+    try {
+      customEmojiSupport.refresh()
+      onSelectionChanged(selectionStart, selectionEnd)
+      parametrizedStyles?.afterSelectionChangedMentions(selectionStart, selectionEnd)
+      layoutManager.invalidateLayout()
+      emitRenderedText()
+      selection?.emitCurrentSelection()
+    } finally {
+      refreshingEmojis = false
+    }
+  }
+
+  internal fun emitRenderedText() {
+    if (!shouldEmitOnChangeText || isDuringTransaction || emojiInputDepth > 0) return
+    val editable = text ?: return
+    val rendered = editable.renderedText()
+    if (rendered == previousRenderedText) return
+    previousRenderedText = rendered
+    val reactContext = context as ReactContext
+    UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)?.dispatchEvent(
+      OnChangeTextEvent(UIManagerHelper.getSurfaceId(reactContext), id, editable, experimentalSynchronousEvents),
+    )
+  }
+
+  internal fun deleteEmojiRange(
+    start: Int,
+    end: Int,
+  ): Boolean {
+    val editable = text ?: return false
+    val safeStart = start.coerceIn(0, editable.length)
+    val safeEnd = end.coerceIn(safeStart, editable.length)
+    val range = editable.atomicEmojiRange(safeStart, safeEnd)
+    if (range == Pair(safeStart, safeEnd)) return false
+    editable.delete(range.first, range.second)
+    setSelection(range.first)
+    return true
+  }
+
+  override fun onKeyDown(
+    keyCode: Int,
+    event: KeyEvent,
+  ): Boolean {
+    if (selectionStart == selectionEnd && selectionStart >= 0 &&
+      (
+        (keyCode == KeyEvent.KEYCODE_DEL && deleteEmojiRange(selectionStart - 1, selectionEnd)) ||
+          (keyCode == KeyEvent.KEYCODE_FORWARD_DEL && deleteEmojiRange(selectionStart, selectionEnd + 1))
+      )
+    ) {
+      return true
+    }
+    return super.onKeyDown(keyCode, event)
+  }
+
   private var lastCaretGeometry: CaretGeometry? = null
 
   var stateWrapper: StateWrapper? = null
@@ -381,6 +464,17 @@ class EnrichedTextInputView :
     selStart: Int,
     selEnd: Int,
   ) {
+    if (!isDuringTransaction && emojiInputDepth == 0 && selStart >= 0 && selEnd >= 0) {
+      val expanded = text?.atomicEmojiRange(selStart, selEnd)
+      if (expanded != null && expanded != Pair(minOf(selStart, selEnd), maxOf(selStart, selEnd))) {
+        if (selStart == selEnd) {
+          setSelection(if (selStart < (selection?.start ?: selStart)) expanded.first else expanded.second)
+        } else {
+          setSelection(expanded.first, expanded.second)
+        }
+        return
+      }
+    }
     super.onSelectionChanged(selStart, selEnd)
     invalidatePendingPaste()
     selection?.onSelection(selStart, selEnd)
@@ -411,8 +505,11 @@ class EnrichedTextInputView :
 
   override fun onTextContextMenuItem(id: Int): Boolean {
     when (id) {
-      android.R.id.copy -> {
+      android.R.id.copy, android.R.id.cut -> {
         handleCustomCopy()
+        if (id == android.R.id.cut && selectionStart >= 0 && selectionEnd > selectionStart) {
+          text?.delete(selectionStart, selectionEnd)
+        }
         return true
       }
 
@@ -426,7 +523,7 @@ class EnrichedTextInputView :
   }
 
   private fun handleRichPasteUndoRedo(id: Int): Boolean {
-    if (!richPasteUndoHistory.hasEntries()) return super.onTextContextMenuItem(id)
+    if (!richPasteUndoHistory.hasEntries()) return performNativeUndoRedo(id)
 
     val hasDirectionalEntries =
       if (id == android.R.id.undo) {
@@ -473,6 +570,7 @@ class EnrichedTextInputView :
     } finally {
       isReconcilingRichPasteUndo = false
       isPerformingUndoRedo = false
+      refreshCustomEmojis()
       if (reconciled) {
         val editable = text as? Editable
         if (editable != null) {
@@ -490,6 +588,7 @@ class EnrichedTextInputView :
       super.onTextContextMenuItem(id)
     } finally {
       isPerformingUndoRedo = false
+      refreshCustomEmojis()
     }
   }
 
@@ -503,7 +602,7 @@ class EnrichedTextInputView :
       val selectedHtml = EnrichedParser.toHtml(selectedText)
 
       val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-      val clip = ClipData.newHtmlText(EnrichedConstants.CLIPBOARD_TAG, selectedText, selectedHtml)
+      val clip = ClipData.newHtmlText(EnrichedConstants.CLIPBOARD_TAG, selectedText.toString(), selectedHtml)
       clipboard.setPrimaryClip(clip)
     }
   }
@@ -549,6 +648,11 @@ class EnrichedTextInputView :
           return
         }
       }
+
+    if (hasCustomEmojis) {
+      applyRichPaste(start, end, pastedSpannable)
+      return
+    }
 
     val finalText = currentText.mergeSpannables(start, end, pastedSpannable, htmlStyle)
     if (!acceptsReplacement(currentText, 0, currentText.length, finalText)) return
@@ -636,29 +740,38 @@ class EnrichedTextInputView :
         .fromHtml(controlledPasteHtmlDocument(html), htmlStyle, spannableFactory, linkRegex)
         .trimEnd('\n')
     val pastedSpannable = (parsed as? Spannable) ?: SpannableString(parsed)
-    val replacedText = editable.subSequence(pending.start, pending.end).toString()
+    return applyRichPaste(pending.start, pending.end, pastedSpannable)
+  }
+
+  private fun applyRichPaste(
+    start: Int,
+    end: Int,
+    pastedSpannable: Spannable,
+  ): Boolean {
+    val editable = text ?: return false
+    val replacedText = editable.subSequence(start, end).toString()
     val beforeSnapshot = captureRichTextSnapshot(editable)
-    val finalText = editable.mergeSpannables(pending.start, pending.end, pastedSpannable, htmlStyle)
+    val finalText = editable.mergeSpannables(start, end, pastedSpannable, htmlStyle)
     if (!acceptsReplacement(editable, 0, editable.length, finalText)) return false
-    val insertedLength = finalText.length - (editable.length - (pending.end - pending.start))
-    val pasteEnd = (pending.start + insertedLength).coerceIn(0, finalText.length)
-    val replacement = finalText.subSequence(pending.start, pasteEnd)
-    if (pending.start == pending.end && replacement.isEmpty()) return false
+    val insertedLength = finalText.length - (editable.length - (end - start))
+    val pasteEnd = (start + insertedLength).coerceIn(0, finalText.length)
+    val replacement = finalText.subSequence(start, pasteEnd)
+    if (start == end && replacement.isEmpty()) return false
     val preparedSnapshot = captureRichTextSnapshot(finalText)
 
     runAsATransaction {
       // Keep this non-empty replacement even when its plain text is unchanged: Android records
       // it as one native undo operation, while its UndoInputFilter intentionally drops spans.
-      editable.replace(pending.start, pending.end, replacement)
+      editable.replace(start, end, replacement)
       restoreRichTextSnapshot(editable, preparedSnapshot)
       setSelection(pasteEnd)
     }
     layoutManager.invalidateLayout()
-    parametrizedStyles?.afterTextChanged(editable, pending.start.coerceAtMost(pasteEnd), pasteEnd)
+    parametrizedStyles?.afterTextChanged(editable, start.coerceAtMost(pasteEnd), pasteEnd)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       // Android 8+ freezes the last native undo edit after showing this correction highlight.
       // Supplying the actual replacement keeps the public notification semantically valid.
-      onCommitCorrection(CorrectionInfo(pending.start, replacedText, replacement.toString()))
+      onCommitCorrection(CorrectionInfo(start, replacedText, replacement.toString()))
     }
     val afterSnapshot = captureRichTextSnapshot(editable)
     richPasteUndoHistory.record(
@@ -739,6 +852,7 @@ class EnrichedTextInputView :
   fun recycle() {
     controlledPasteState?.recycle()
     richPasteUndoHistory.clear()
+    customEmojiSupport.dispose()
   }
 
   fun requestFocusProgrammatically() {
@@ -807,26 +921,7 @@ class EnrichedTextInputView :
     setSelection(actualStart, actualEnd)
   }
 
-  // Helper: Walks through the string skipping ZWSPs to find the Nth visible character
-  private fun getActualIndex(visibleIndex: Int): Int {
-    val currentText = text as Spannable
-    var currentVisibleCount = 0
-    var actualIndex = 0
-
-    while (actualIndex < currentText.length) {
-      if (currentVisibleCount == visibleIndex) {
-        return actualIndex
-      }
-
-      // If the current char is not a hidden space, it counts towards our visible index
-      if (currentText[actualIndex] != EnrichedConstants.ZWS) {
-        currentVisibleCount++
-      }
-      actualIndex++
-    }
-
-    return actualIndex
-  }
+  private fun getActualIndex(visibleIndex: Int): Int = text?.sourceOffset(visibleIndex) ?: 0
 
   /**
    * Finds all async images in the current text and sets up listeners
@@ -1080,8 +1175,8 @@ class EnrichedTextInputView :
     val currentText = text ?: return
     val selectedText = currentText.subSequence(start, end).toString().replace(EnrichedConstants.ZWS_STRING, "")
 
-    val visibleStart = start - currentText.zwsCountBefore(start)
-    val visibleEnd = end - currentText.zwsCountBefore(end)
+    val visibleStart = currentText.renderedOffset(start)
+    val visibleEnd = currentText.renderedOffset(end)
 
     val reactContext = context as ReactContext
     val surfaceId = UIManagerHelper.getSurfaceId(reactContext)
@@ -1371,11 +1466,13 @@ class EnrichedTextInputView :
   // Eg. removing conflicting styles -> changing text -> applying spans
   // In such scenario we want to prevent from handling side effects (eg. onTextChanged)
   fun runAsATransaction(block: () -> Unit) {
+    val wasDuringTransaction = isDuringTransaction
     try {
       isDuringTransaction = true
       block()
     } finally {
-      isDuringTransaction = false
+      isDuringTransaction = wasDuringTransaction
+      if (!wasDuringTransaction) refreshCustomEmojis()
     }
   }
 
@@ -1470,8 +1567,14 @@ class EnrichedTextInputView :
     forceScrollToSelection()
   }
 
+  override fun onDetachedFromWindow() {
+    customEmojiSupport.dispose()
+    super.onDetachedFromWindow()
+  }
+
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
+    refreshCustomEmojis()
 
     // https://github.com/facebook/react-native/blob/36df97f500aa0aa8031098caf7526db358b6ddc1/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/ReactEditText.kt#L946
     // setTextIsSelectable internally calls setText(), which fires afterTextChanged that should be marked as a transaction to avoid unwanted side effects
