@@ -28,14 +28,11 @@ export function normalizeHtmlFromTiptap(
   html = sanitizeHtml(html, sanitizationConfig);
   html = checkboxHtmlFromTiptap(html);
 
-  // Strip <p> wrappers inside <li> elements.
-  // TipTap renders <li><p>text</p></li> but native expects <li>text</li>.
-  // This regex is safe because EnrichedListItem.content is 'paragraph', which
-  // prevents TipTap from ever emitting nested lists
-  html = html.replace(
-    /<li([^>]*)>\s*<p[^>]*>(.*?)<\/p>\s*<\/li>/gs,
-    '<li$1>$2</li>'
-  );
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('li > p').forEach((paragraph) => {
+    paragraph.replaceWith(...paragraph.childNodes);
+  });
+  html = doc.body.innerHTML.replace(/checked=""/g, 'checked');
 
   // Convert remaining empty <p></p> to <br> (outside of lists)
   html = html.replace(/<p><\/p>/g, '<br>');

@@ -4,18 +4,19 @@ sidebar_position: 3
 
 # Known limitations
 
-This page lists limitations that apply to **every** platform. Behaviours that
-differ only between iOS, Android, and Web are documented separately under
+This page lists limitations and their platform scope. Additional differences
+between iOS, Android, and Web are documented under
 [Compatibility](/misc/compatibility).
 
 Some of these are on our [Roadmap](/misc/roadmap); others are deliberate design
 choices that keep the library fast and its output predictable.
 
-## Single-level lists only
+## Single-level lists on native platforms
 
-The editor supports a single level of ordered and unordered lists. **Nested
-lists are not supported** - you can't indent a list item to create a sublist.
-Multi-level list support is planned; see the [Roadmap](/misc/roadmap).
+iOS and Android support single-level lists. On web, bullet, numbered, and
+checkbox lists can be nested with Tab and outdented with Shift+Tab. Nested
+HTML is preserved by the web editor and display component, but is not portable
+to the native editor. See [Lists](/rich-text-formatting/lists).
 
 ## Fixed set of HTML tags
 

@@ -9,6 +9,7 @@ import {
   isFormatBlocked,
 } from '../formats/formatRules';
 import type { HtmlStyle } from '../../types';
+import { selectedList } from '../formats/listStructure';
 
 export const useOnChangeState = (
   editor: Editor | null,
@@ -46,6 +47,7 @@ function buildState(
   htmlStyle: Required<HtmlStyle>
 ): OnChangeStateEvent {
   const isAnyBlockActive = isAnyParagraphFormatActive(editor);
+  const listName = selectedList(editor.state.selection)?.list.type.name;
 
   function inlineFormat(tiptapName: string, isConflicting: boolean) {
     return {
@@ -80,9 +82,9 @@ function buildState(
       editor.isActive('codeBlock'),
       editor.isActive('link')
     ),
-    orderedList: paragraphFormat(editor.isActive('orderedList')),
-    unorderedList: paragraphFormat(editor.isActive('unorderedList')),
-    checkboxList: paragraphFormat(editor.isActive('checkboxList')),
+    orderedList: paragraphFormat(listName === 'orderedList'),
+    unorderedList: paragraphFormat(listName === 'unorderedList'),
+    checkboxList: paragraphFormat(listName === 'checkboxList'),
     link: inlineFormat(
       'link',
       editor.isActive('code') ||

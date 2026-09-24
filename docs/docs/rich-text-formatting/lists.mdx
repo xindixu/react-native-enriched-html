@@ -23,7 +23,18 @@ time** exactly as described in
 
 :::note
 
-As for now the library does not support nested lists. You can only create a single-level list. If you try to insert a nested list in any way, e.g. by calling `setValue` on the editor's `ref`, the list will get flattened by the [normalizer](/fundamentals/core-concepts#normalization).
+On web, Tab indents a list item beneath its preceding sibling and Shift+Tab
+outdents it. Both commands preserve child lists and support selections of sibling
+items. Mixed bullet, numbered, and checkbox lists are supported. Checking a
+parent does not change its children. A new checkbox item starts unchecked.
+
+Enter continues the list at the same depth, even on an empty item. Backspace at
+the start of an item outdents it. At the top level, outdenting turns the item into
+a paragraph and preserves its child lists. If Tab cannot indent, it retains
+normal browser focus navigation. List-type controls target the innermost list.
+
+iOS and Android support only single-level lists; their
+[normalizer](/fundamentals/core-concepts#normalization) flattens nested lists.
 
 :::
 

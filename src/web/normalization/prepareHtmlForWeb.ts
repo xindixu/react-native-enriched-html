@@ -56,8 +56,6 @@ function wrapBareLiContentInParagraph(doc: Document) {
       nodesToWrap.push(node);
     }
 
-    if (nodesToWrap.length === 0 && childNodes.length > 0) return;
-
     const p = doc.createElement('p');
 
     li.insertBefore(p, childNodes[0] || null);
@@ -87,14 +85,25 @@ function wrapBareLiContentInParagraph(doc: Document) {
  */
 function checkboxHtmlToWeb(doc: Document) {
   doc.querySelectorAll('ul[data-type="checkbox"]').forEach((ul) => {
-    ul.querySelectorAll('li').forEach((li) => {
-      const checked = li.hasAttribute('checked');
-      const labelContent = li.innerHTML;
-
-      li.removeAttribute('checked');
-      li.innerHTML =
-        `<input type="checkbox"${checked ? ' checked' : ''}>` +
-        `<label>${labelContent}</label>`;
-    });
+    Array.from(ul.children)
+      .filter((el) => el.tagName === 'LI')
+      .forEach((li) => {
+        const checked = li.hasAttribute('checked');
+        li.removeAttribute('checked');
+        const input = doc.createElement('input');
+        input.type = 'checkbox';
+        if (checked) input.setAttribute('checked', '');
+        const label = doc.createElement('label');
+        while (
+          li.firstChild &&
+          !(
+            li.firstChild instanceof Element &&
+            ['UL', 'OL'].includes(li.firstChild.tagName)
+          )
+        ) {
+          label.appendChild(li.firstChild);
+        }
+        li.prepend(input, label);
+      });
   });
 }
