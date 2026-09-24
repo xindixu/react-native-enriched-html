@@ -2,6 +2,7 @@
 #import "AlignmentUtils.h"
 #import "AttachmentLayoutUtils.h"
 #import "CoreText/CoreText.h"
+#import "CustomEmojiUtils.h"
 #import "DotReplacementUtils.h"
 #import "HtmlParser.h"
 #import "ImageAttachment.h"
@@ -76,6 +77,11 @@ using namespace facebook::react;
   BOOL _hasCaretGeometry;
   CGRect _lastCaretRect;
   BOOL _lastCaretVisible;
+  NSDictionary<NSString *, NSString *> *_customEmojis;
+  NSMutableSet<NSString *> *_reportedEmojiErrors;
+  BOOL _normalizingEmojis;
+  BOOL _updatingProps;
+  BOOL _suppressEmojiRecognition;
 }
 
 @synthesize blockEmitting = blockEmitting;
@@ -173,6 +179,19 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
 - (void)setupTextView {
   textView = [[EnrichedInputTextView alloc] init];
+  textView.emojiHistory = [CustomEmojiHistory new];
+  __weak EnrichedTextInputView *weakSelf = self;
+  textView.emojiHistory.restore =
+      ^(NSAttributedString *snapshot, NSRange selection) {
+        EnrichedTextInputView *input = weakSelf;
+        if (!input)
+          return;
+        input->_suppressEmojiRecognition = YES;
+        [input->textView.textStorage setAttributedString:snapshot];
+        input->textView.selectedRange = selection;
+        [input anyTextMayHaveBeenModified];
+      };
+  _reportedEmojiErrors = [NSMutableSet new];
   textView.backgroundColor = UIColor.clearColor;
   textView.textContainerInset = UIEdgeInsetsMake(0, 0, 0, 0);
   textView.textContainer.lineFragmentPadding = 0;
@@ -210,10 +229,16 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
 - (void)updateProps:(Props::Shared const &)props
            oldProps:(Props::Shared const &)oldProps {
+  _updatingProps = YES;
   const auto &oldViewProps =
       *std::static_pointer_cast<EnrichedTextInputViewProps const>(_props);
   const auto &newViewProps =
       *std::static_pointer_cast<EnrichedTextInputViewProps const>(props);
+  NSMutableDictionary *catalog = [NSMutableDictionary new];
+  for (const auto &emoji : newViewProps.customEmojis)
+    catalog[[NSString fromCppString:emoji.shortcode]] =
+        [NSString fromCppString:emoji.uri];
+  _customEmojis = catalog;
   BOOL isFirstMount = NO;
   BOOL stylePropChanged = NO;
 
@@ -890,6 +915,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   [self anyTextMayHaveBeenModified];
 
   // autofocus - needs to be done at the very end
+  _updatingProps = NO;
   if (isFirstMount && newViewProps.autoFocus) {
     [textView reactFocus];
   }
@@ -1242,6 +1268,11 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
 - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args {
   if (![commandName isEqualToString:@"focus"] &&
+      ![commandName isEqualToString:@"blur"] &&
+      ![commandName isEqualToString:@"requestHTML"] &&
+      ![commandName isEqualToString:@"setSelection"])
+    [self prepareForEmojiEdit];
+  if (![commandName isEqualToString:@"focus"] &&
       ![commandName isEqualToString:@"requestHTML"] &&
       ![commandName isEqualToString:@"completePaste"]) {
     [self invalidatePendingPaste];
@@ -1358,6 +1389,8 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 }
 
 - (void)setValue:(NSString *)value {
+  _suppressEmojiRecognition = NO;
+  [textView.emojiHistory reset];
   NSString *initiallyProcessedHtml = [parser initiallyProcessHtml:value];
   if (initiallyProcessedHtml == nullptr) {
     // reset the text first and reset typing attributes
@@ -1489,10 +1522,13 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 - (BOOL)acceptsReplacementText:(NSString *)text range:(NSRange)range {
   if (_maxPlainTextLength < 0)
     return YES;
-  NSUInteger currentLength = textView.textStorage.length;
-  if (NSMaxRange(range) > currentLength)
+  if (NSMaxRange(range) > textView.textStorage.length)
     return NO;
-  NSUInteger resultLength = currentLength - range.length + text.length;
+  NSUInteger currentLength =
+      [CustomEmojiUtils expandedText:textView.textStorage].length;
+  NSUInteger removedLength =
+      [CustomEmojiUtils expandedRange:range inText:textView.textStorage].length;
+  NSUInteger resultLength = currentLength - removedLength + text.length;
   if (resultLength <= (NSUInteger)_maxPlainTextLength ||
       resultLength <= currentLength)
     return YES;
@@ -1848,12 +1884,36 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   }
 }
 
+- (void)prepareForEmojiEdit {
+  _suppressEmojiRecognition = NO;
+}
+
 - (void)anyTextMayHaveBeenModified {
+  if (_normalizingEmojis)
+    return;
   // we don't do text changes when working with iOS marked text
   if (textView.markedTextRange != nullptr) {
     [self handlePlaceholderVisibility];
     return;
   }
+
+  _normalizingEmojis = YES;
+  NSRange emojiSelection = textView.selectedRange;
+  [CustomEmojiUtils normalizeText:textView.textStorage
+                        selection:&emojiSelection
+                          catalog:_customEmojis
+                         delegate:self
+                        recognize:!_suppressEmojiRecognition];
+  BOOL emojiSelectionChanged =
+      !NSEqualRanges(textView.selectedRange, emojiSelection);
+  textView.selectedRange = emojiSelection;
+  NSMutableDictionary *typing = [textView.typingAttributes mutableCopy];
+  [typing removeObjectForKey:CustomEmojiAttributeName];
+  if ([typing[NSAttachmentAttributeName]
+          isKindOfClass:CustomEmojiAttachment.class])
+    [typing removeObjectForKey:NSAttachmentAttributeName];
+  textView.typingAttributes = typing;
+  _normalizingEmojis = NO;
 
   // zero width space adding or removal
   [ZeroWidthSpaceUtils handleZeroWidthSpacesInHost:self];
@@ -1932,6 +1992,11 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
   [self tryUpdatingActiveStyles];
   // update drawing - schedule debounced relayout
   [self scheduleRelayoutIfNeeded];
+  [textView.emojiHistory observeText:textView.textStorage
+                           selection:textView.selectedRange
+                              record:!_updatingProps];
+  if (emojiSelectionChanged)
+    [self textViewDidChangeSelection:textView];
 }
 
 - (void)handlePlaceholderVisibility {
@@ -2127,6 +2192,7 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 
   if (![self acceptsReplacementText:text range:range])
     return NO;
+  [self prepareForEmojiEdit];
 
   // Capture the attributes at range.location that are being replaced
   // (autocorrect / predictive) so didProcessEditing: can re-stamp them onto the
@@ -2234,6 +2300,11 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 }
 
 - (void)textViewDidChangeSelection:(UITextView *)textView {
+  if (_normalizingEmojis)
+    return;
+  if (textView.markedTextRange == nil)
+    [self->textView.emojiHistory observeSelection:textView.selectedRange
+                                           inText:textView.textStorage];
   if (!_hasObservedSelection ||
       !NSEqualRanges(_lastObservedSelection, textView.selectedRange)) {
     _lastObservedSelection = textView.selectedRange;
@@ -2417,6 +2488,35 @@ Class<RCTComponentViewProtocol> EnrichedTextInputViewCls(void) {
 // MARK: - Media attachments delegate
 
 - (void)mediaAttachmentDidUpdate:(MediaAttachment *)attachment {
+  if ([attachment isKindOfClass:CustomEmojiAttachment.class]) {
+    __block BOOL present = NO;
+    [textView.textStorage
+        enumerateAttribute:NSAttachmentAttributeName
+                   inRange:NSMakeRange(0, textView.textStorage.length)
+                   options:0
+                usingBlock:^(id value, NSRange range, BOOL *stop) {
+                  if (value == attachment) {
+                    present = YES;
+                    [(CustomEmojiAttachment *)attachment
+                        updateFont:[textView.textStorage
+                                            attribute:NSFontAttributeName
+                                              atIndex:range.location
+                                       effectiveRange:NULL]
+                                       ?: [config primaryFont]];
+                  }
+                }];
+    if (!present)
+      return;
+    CustomEmojiAttachment *emoji = (CustomEmojiAttachment *)attachment;
+    if (emoji.loadFailed && ![_reportedEmojiErrors containsObject:emoji.uri]) {
+      auto emitter = [self getEventEmitter];
+      if (emitter != nullptr) {
+        [_reportedEmojiErrors addObject:emoji.uri];
+        emitter->onCustomEmojiError({.shortcode = [emoji.shortcode toCppString],
+                                     .uri = [emoji.uri toCppString]});
+      }
+    }
+  }
   [AttachmentLayoutUtils handleAttachmentUpdate:attachment
                                        textView:textView
                                   onLayoutBlock:^{

@@ -1,6 +1,7 @@
 #import "HtmlParser.h"
 #import "AlignmentEntry.h"
 #import "AlignmentUtils.h"
+#import "CustomEmojiAttachment.h"
 #import "EnrichedConfig.h"
 #import "ImageData.h"
 #import "LinkData.h"
@@ -906,6 +907,12 @@
 
     NSString *currentCharacterStr =
         [host.textView.textStorage.string substringWithRange:currentRange];
+    id attachment =
+        [host.textView.textStorage attribute:NSAttachmentAttributeName
+                                     atIndex:currentRange.location
+                              effectiveRange:NULL];
+    if ([attachment isKindOfClass:CustomEmojiAttachment.class])
+      currentCharacterStr = ((CustomEmojiAttachment *)attachment).shortcode;
     unichar currentCharacterChar = [host.textView.textStorage.string
         characterAtIndex:currentRange.location];
 

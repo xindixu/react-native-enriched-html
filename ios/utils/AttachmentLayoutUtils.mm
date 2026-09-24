@@ -1,4 +1,5 @@
 #import "AttachmentLayoutUtils.h"
+#import "CustomEmojiAttachment.h"
 
 @implementation AttachmentLayoutUtils
 
@@ -87,6 +88,12 @@
 
                          // Ensure it is visible on top
                          imgView.hidden = NO;
+                         if ([attachment
+                                 isKindOfClass:CustomEmojiAttachment.class]) {
+                           imgView.isAccessibilityElement = YES;
+                           imgView.accessibilityLabel =
+                               ((CustomEmojiAttachment *)attachment).shortcode;
+                         }
                          [textView bringSubviewToFront:imgView];
 
                          activeAttachmentViews[key] = imgView;

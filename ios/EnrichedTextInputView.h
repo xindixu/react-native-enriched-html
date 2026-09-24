@@ -51,6 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
                                range:(NSRange)range;
 - (void)invalidatePendingPaste;
 - (void)anyTextMayHaveBeenModified;
+- (void)prepareForEmojiEdit;
 - (void)scheduleRelayoutIfNeeded;
 - (void)emitCaretChange;
 
