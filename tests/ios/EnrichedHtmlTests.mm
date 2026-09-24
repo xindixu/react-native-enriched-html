@@ -193,6 +193,18 @@
                 effectiveRange:nil]);
 }
 
+- (void)testDelayedCatalogPreservesPartialShortcodeSelection {
+  NSMutableAttributedString *text = [self text:@":party:"];
+  NSRange selection = NSMakeRange(2, 2);
+  [self normalize:text selection:&selection];
+  XCTAssertEqualObjects(text.string, @"\ufffc");
+  XCTAssertTrue(NSEqualRanges(selection, NSMakeRange(0, 1)));
+  // A collapsed caret still resolves to the trailing edge of the atom.
+  XCTAssertTrue(NSEqualRanges([CustomEmojiUtils renderedRange:NSMakeRange(2, 0)
+                                                       inText:text],
+                              NSMakeRange(1, 0)));
+}
+
 - (void)testSelectionRangeRoundTripAcrossMultipleTokens {
   NSMutableAttributedString *text = [self text:@"😀 :party: x :party:!"];
   NSRange selection = NSMakeRange(text.length, 0);

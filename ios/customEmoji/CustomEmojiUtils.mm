@@ -56,8 +56,14 @@ static void EnumerateEmojis(NSAttributedString *text, BOOL reverse,
   EnumerateEmojis(text, NO, ^(CustomEmojiAttachment *emoji, NSUInteger index) {
     NSUInteger length = emoji.shortcode.length;
     NSUInteger sourceStart = index + offset;
-    if (range.location > sourceStart)
-      start -= MIN(range.location - sourceStart, length) - 1;
+    if (range.location > sourceStart) {
+      // A nonempty selection overlapping an atom includes that whole atom.
+      // Collapsed carets continue to resolve to its trailing edge.
+      BOOL startsInside =
+          range.length > 0 && range.location < sourceStart + length;
+      start -=
+          MIN(range.location - sourceStart, length) - (startsInside ? 0 : 1);
+    }
     if (NSMaxRange(range) > sourceStart)
       end -= MIN(NSMaxRange(range) - sourceStart, length) - 1;
     offset += length - 1;
