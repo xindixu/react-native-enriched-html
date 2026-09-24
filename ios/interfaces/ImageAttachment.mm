@@ -102,7 +102,8 @@ static NSCache<NSString *, UIImage *> *ImageAttachmentCache(void) {
                                        img.size.height * scale * 4.0);
         [ImageAttachmentCache() setObject:img forKey:self.uri cost:cost];
       }
-      self.storedAnimatedImage = img ?: [UIImage systemImageNamed:@"photo"];
+      self.storedAnimatedImage =
+          bytes ? img : [UIImage systemImageNamed:@"photo"];
       [self notifyUpdate];
     });
   });
