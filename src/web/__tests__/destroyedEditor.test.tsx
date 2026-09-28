@@ -1,6 +1,10 @@
-import { act } from 'react';
+import { act, createRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EnrichedTextInput } from '../EnrichedTextInput';
+import type {
+  EnrichedTextInputInstance,
+  EnrichedTextInputProps,
+} from '../../types';
 
 // `act` warns unless the environment opts in; these tests drive react-dom
 // directly rather than through a testing library that sets this for them.
@@ -13,14 +17,19 @@ type TEditorHost = HTMLElement & { editor?: { destroy: () => void } };
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
 
-const renderWithHeadingSize = (fontSize: number) => {
+const renderWithHeadingSize = (
+  fontSize: number,
+  props: Omit<EnrichedTextInputProps, 'htmlStyle'> = {}
+) => {
   if (!container) {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
   }
   act(() => {
-    root?.render(<EnrichedTextInput htmlStyle={{ h1: { fontSize } }} />);
+    root?.render(
+      <EnrichedTextInput {...props} htmlStyle={{ h1: { fontSize } }} />
+    );
   });
 };
 
@@ -44,5 +53,31 @@ describe('EnrichedTextInput with a destroyed editor', () => {
     // A changed `htmlStyle` reproduces that re-run without React's reveal path,
     // which a test cannot drive.
     expect(() => renderWithHeadingSize(31)).not.toThrow();
+  });
+
+  it('does not export HTML when effects remount with a destroyed editor', () => {
+    const onChangeHtml = jest.fn();
+    renderWithHeadingSize(30, { onChangeHtml });
+
+    const host = container?.querySelector<TEditorHost>('.ProseMirror');
+    expect(host?.editor).toBeDefined();
+    act(() => host?.editor?.destroy());
+
+    expect(() => renderWithHeadingSize(31, { onChangeHtml })).not.toThrow();
+  });
+
+  it('rejects an imperative HTML export after the editor is destroyed', async () => {
+    const editorRef = createRef<EnrichedTextInputInstance>();
+    renderWithHeadingSize(30, { ref: editorRef });
+
+    const host = container?.querySelector<TEditorHost>('.ProseMirror');
+    expect(host?.editor).toBeDefined();
+    act(() => host?.editor?.destroy());
+
+    let exportPromise: Promise<string> | undefined;
+    expect(() => {
+      exportPromise = editorRef.current?.getHTML();
+    }).not.toThrow();
+    await expect(exportPromise).rejects.toThrow();
   });
 });
