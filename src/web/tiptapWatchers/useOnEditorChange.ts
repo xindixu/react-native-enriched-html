@@ -11,7 +11,7 @@ export const useOnEditorChange = <T extends { value: string }>(
   const lastValueRef = useRef('');
 
   useEffect(() => {
-    if (!handler) return;
+    if (!handler || editor.isDestroyed) return;
 
     const handleUpdate = () => {
       const value = getValue(editor);

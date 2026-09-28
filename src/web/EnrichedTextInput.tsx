@@ -552,13 +552,17 @@ export const EnrichedTextInput = ({
         editor.view.dispatch(closeHistory(editor.state.tr));
         return true;
       },
-      getHTML: () =>
-        Promise.resolve(
+      getHTML: () => {
+        if (editor.isDestroyed) {
+          return Promise.reject(new Error('The editor has been destroyed'));
+        }
+        return Promise.resolve(
           normalizeHtmlFromTiptap(
             editor.getHTML(),
             () => sanitizationConfigRef.current
           )
-        ),
+        );
+      },
       toggleBold: () => runFocused(editor, (c) => c.toggleBold()),
       toggleItalic: () => runFocused(editor, (c) => c.toggleItalic()),
       toggleUnderline: () => runFocused(editor, (c) => c.toggleUnderline()),
